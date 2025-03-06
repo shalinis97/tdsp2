@@ -3,8 +3,6 @@ uvicorn
 pandas
 openpyxl
 python-dotenv
-sentence-transformers
-torch
 pydantic
 httpx
 aiofiles

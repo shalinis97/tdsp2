@@ -12,8 +12,7 @@ import pandas as pd
 from datetime import datetime
 import io
 import json
-from sentence_transformers import SentenceTransformer, util
-import torch
+import httpx
 
 load_dotenv()
 
@@ -32,11 +31,9 @@ app.add_middleware(
 class AnswerResponse(BaseModel):
     answer: str
 
-# Load a smaller Sentence Transformer Model for NLP-based question matching
-model = SentenceTransformer('paraphrase-MiniLM-L3-v2')
-
 # Sample environment variable usage
 AIPROXY_TOKEN = os.getenv("AIPROXY_TOKEN")
+NLP_API_URL = "http://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
 
 # Function map to dynamically call the correct function based on question similarity
 function_map: Dict[str, Callable] = {}
@@ -46,7 +43,7 @@ question_embeddings = {}
 def register_question(question_text: str):
     def decorator(func: Callable):
         function_map[question_text] = func
-        question_embeddings[question_text] = model.encode(question_text, convert_to_tensor=True)
+        question_embeddings[question_text] = None  # Placeholder for external embedding
         return func
     return decorator
 
@@ -105,23 +102,29 @@ async def calculate_total_sales(file: UploadFile) -> str:
             continue
     return f"{total_sales:.2f}"
 
+async def get_embedding_from_external_api(text: str) -> Optional[str]:
+    try:
+        async with httpx.AsyncClient() as client:
+            headers = {"Authorization": f"Bearer {AIPROXY_TOKEN}", "Content-Type": "application/json"}
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": text}]
+            }
+            response = await client.post(NLP_API_URL, headers=headers, json=payload)
+            if response.status_code == 200:
+                return response.json().get("choices")[0]["message"]["content"]
+    except Exception as e:
+        print(f"Error fetching embedding: {e}")
+    return None
+
 @app.post("/api/", response_model=AnswerResponse)
 async def get_answer(question: str = Form(...), file: Optional[UploadFile] = None):
     try:
-        # Encode the input question using the NLP model
-        question_embedding = model.encode(question, convert_to_tensor=True)
-        # Calculate similarity scores with registered questions
-        similarity_scores = {q: util.cos_sim(question_embedding, emb)[0][0].item() for q, emb in question_embeddings.items()}
-        # Select the most similar question
-        best_match = max(similarity_scores, key=similarity_scores.get)
-        # Threshold to avoid low-confidence matches
-        if similarity_scores[best_match] < 0.5:
-            return AnswerResponse(answer="No relevant answer found.")
-        # Call the appropriate function based on the best match
-        if file:
-            answer = await function_map[best_match](file)
-        else:
-            answer = await function_map[best_match]()
+        # Get embedding for the input question
+        answer = await get_embedding_from_external_api(question)
+        if not answer:
+            return AnswerResponse(answer="Failed to get response from AI Proxy.")
+
         return AnswerResponse(answer=answer)
 
     except Exception as e:
