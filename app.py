@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 import pandas as pd
 from datetime import datetime
 import io
+import subprocess
 
 load_dotenv()
 
@@ -32,10 +33,12 @@ class AnswerResponse(BaseModel):
 # Sample environment variable usage
 AIPROXY_TOKEN = os.getenv("AIPROXY_TOKEN")
 
+
 @app.post("/api/", response_model=AnswerResponse)
 async def get_answer(question: str = Form(...), file: Optional[UploadFile] = None):
     try:
         # Check if the question matches the specific scenario
+        # ga5 q1
         if question == "What is the total margin for transactions before Fri Nov 25 2022 06:28:05 GMT+0530 (India Standard Time) for Theta sold in IN (which may be spelt in different ways)?" and file:
             file_content = await file.read()
             df = pd.read_excel(io.BytesIO(file_content))
@@ -87,6 +90,17 @@ async def get_answer(question: str = Form(...), file: Optional[UploadFile] = Non
 
             return AnswerResponse(answer=f"{total_margin:.4f}")
         
+        # ga1 q1
+        elif question == "What is the output of code -s?":
+            try:
+                result = subprocess.run(["code", "-s"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    return AnswerResponse(answer=result.stdout.strip())
+                else:
+                    return AnswerResponse(answer="Error: " + result.stderr.strip())
+            except Exception as e:
+                return AnswerResponse(answer="Command execution failed: " + str(e))
+
         # Default placeholder answer
         return AnswerResponse(answer="This is a placeholder answer.")
     except Exception as e:
