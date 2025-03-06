@@ -1,15 +1,4 @@
 # app.py
-# /// script
-# dependencies = [
-#   "requests",
-#   "fastapi",
-#   "uvicorn",
-#   "pandas",
-#   "python-dotenv",
-#   "httpx",
-#   "openpyxl",
-#   "python-multipart"
-# ]
 
 from fastapi import FastAPI, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
