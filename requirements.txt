@@ -7,4 +7,3 @@ pydantic
 httpx
 aiofiles
 python-multipart
-re
