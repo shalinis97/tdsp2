@@ -90,12 +90,12 @@ async def get_code_s_output() -> str:
 @register_question(r".*total sales value.*")
 async def calculate_total_sales(file: UploadFile) -> str:
     file_content = await file.read()
-    total_sales = 0.0
+    total_sales = 0
     file_content_str = file_content.decode("utf-8")
     # Use regex to find all sales values in the JSONL file
     sales_matches = re.findall(r'"sales":\s*([\d.]+)', file_content_str)
-    total_sales = sum(float(sales) for sales in sales_matches)
-    return f"{total_sales:.f}"
+    total_sales = sum(int(float(sales)) for sales in sales_matches)
+    return str(total_sales)
 
 @app.post("/api/", response_model=AnswerResponse)
 async def get_answer(question: str = Form(...), file: Optional[UploadFile] = None):
