@@ -40,8 +40,10 @@ async def get_answer(question: str = Form(...), file: Optional[UploadFile] = Non
             file_content = await file.read()
             df = pd.read_excel(io.BytesIO(file_content))
             
-            # Clean and process the data
+            # Step 1: Trim and Normalize Strings
             df['Customer Name'] = df['Customer Name'].str.strip()
+            
+            # Normalize country names to standardized 2-letter codes
             country_mapping = {
                 "Ind": "IN", "India": "IN",
                 "USA": "US", "U.S.A": "US", "US": "US",
@@ -50,25 +52,39 @@ async def get_answer(question: str = Form(...), file: Optional[UploadFile] = Non
                 "Bra": "BR", "Brazil": "BR"
             }
             df['Country'] = df['Country'].str.strip().map(country_mapping).fillna(df['Country'])
-            
-            # Parse dates and extract product names
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+
+            # Step 2: Standardize Date Formats
+            def parse_date(date_str):
+                for fmt in ("%Y/%m/%d", "%m-%d-%Y"):
+                    try:
+                        return datetime.strptime(date_str, fmt)
+                    except ValueError:
+                        continue
+                return None
+            df['Date'] = df['Date'].apply(parse_date)
+
+            # Step 3: Extract Product Name
             df['Product'] = df['Product/Code'].str.split('/').str[0].str.strip()
+
+            # Step 4: Clean and Convert Sales and Cost
             df['Sales'] = df['Sales'].str.replace("USD", "").str.replace(" ", "").astype(float)
             df['Cost'] = df['Cost'].str.replace("USD", "").str.replace(" ", "")
+
+            # Handle missing Cost values as 50% of Sales
             df['Cost'] = df['Cost'].apply(lambda x: float(x) if pd.notnull(x) else None)
             df['Cost'].fillna(df['Sales'] * 0.5, inplace=True)
 
-            # Filter data based on the criteria
+            # Step 5: Apply Filters
             filter_date = datetime(2022, 11, 25, 6, 28, 5)
             filtered_df = df[(df['Date'] <= filter_date) & 
                              (df['Product'] == 'Theta') & 
                              (df['Country'] == 'IN')]
 
+            # Step 6: Calculate Total Margin
             total_sales = filtered_df['Sales'].sum()
             total_cost = filtered_df['Cost'].sum()
             total_margin = (total_sales - total_cost) / total_sales if total_sales != 0 else 0
-            
+
             return AnswerResponse(answer=f"{total_margin:.4f}")
         
         # Default placeholder answer
