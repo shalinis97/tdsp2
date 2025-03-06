@@ -91,13 +91,10 @@ async def get_code_s_output() -> str:
 async def calculate_total_sales(file: UploadFile) -> str:
     file_content = await file.read()
     total_sales = 0.0
-    for line in file_content.splitlines():
-        try:
-            data = json.loads(line)
-            sales_value = float(data.get('sales', 0))
-            total_sales += sales_value
-        except json.JSONDecodeError:
-            continue
+    file_content_str = file_content.decode("utf-8")
+    # Use regex to find all sales values in the JSONL file
+    sales_matches = re.findall(r'"sales":\s*([\d.]+)', file_content_str)
+    total_sales = sum(float(sales) for sales in sales_matches)
     return f"{total_sales:.2f}"
 
 @app.post("/api/", response_model=AnswerResponse)
