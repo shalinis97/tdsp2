@@ -32,8 +32,8 @@ app.add_middleware(
 class AnswerResponse(BaseModel):
     answer: str
 
-# Load Sentence Transformer Model for NLP-based question matching
-model = SentenceTransformer('all-MiniLM-L6-v2')
+# Load a smaller Sentence Transformer Model for NLP-based question matching
+model = SentenceTransformer('paraphrase-MiniLM-L3-v2')
 
 # Sample environment variable usage
 AIPROXY_TOKEN = os.getenv("AIPROXY_TOKEN")
