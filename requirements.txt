@@ -1,0 +1,1 @@
+"requests\nfastapi\nuvicorn\npython-dateutil\npandas\ndb-sqlite3\nscipy\npybase64\npython-dotenv\nhttpx\nmarkdown\nduckdb\nwhisper\npillow\nopenpyxl" 
