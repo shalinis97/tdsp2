@@ -1,15 +1,7 @@
 requests
 fastapi
 uvicorn
-python-dateutil
 pandas
-db-sqlite3
-scipy
-pybase64
 python-dotenv
 httpx
-markdown
-duckdb
-whisper
-pillow
 openpyxl
