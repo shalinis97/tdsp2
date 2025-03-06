@@ -1,8 +1,12 @@
-requests
 fastapi
 uvicorn
 pandas
-python-dotenv
-httpx
 openpyxl
+python-dotenv
+sentence-transformers
+torch
+json
+pydantic
+httpx
+aiofiles
 python-multipart
