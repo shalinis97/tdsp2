@@ -87,7 +87,7 @@ async def get_code_s_output() -> str:
     return "Cannot execute 'code -s' in a serverless environment. Please run this command locally."
 
 # ga5 q6 - Calculate total sales from JSONL file
-@register_question(r".*total sales value.*")
+@register_question(r".*(total sales value|total sales).*")
 async def calculate_total_sales(file: UploadFile) -> str:
     file_content = await file.read()
     total_sales = 0
