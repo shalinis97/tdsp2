@@ -12,7 +12,6 @@ import pandas as pd
 from datetime import datetime
 import io
 import json
-import httpx
 import re
 
 load_dotenv()
@@ -32,7 +31,7 @@ app.add_middleware(
 class AnswerResponse(BaseModel):
     answer: str
 
-# Sample environment variable usage
+# Keep AIPROXY_TOKEN and NLP_API_URL without usage
 AIPROXY_TOKEN = os.getenv("AIPROXY_TOKEN")
 NLP_API_URL = "http://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
 
@@ -101,21 +100,6 @@ async def calculate_total_sales(file: UploadFile) -> str:
             continue
     return f"{total_sales:.2f}"
 
-async def get_embedding_from_external_api(text: str) -> Optional[str]:
-    try:
-        async with httpx.AsyncClient() as client:
-            headers = {"Authorization": f"Bearer {AIPROXY_TOKEN}", "Content-Type": "application/json"}
-            payload = {
-                "model": "gpt-4o-mini",
-                "messages": [{"role": "user", "content": text}]
-            }
-            response = await client.post(NLP_API_URL, headers=headers, json=payload)
-            if response.status_code == 200:
-                return response.json().get("choices")[0]["message"]["content"]
-    except Exception as e:
-        print(f"Error fetching embedding: {e}")
-    return None
-
 @app.post("/api/", response_model=AnswerResponse)
 async def get_answer(question: str = Form(...), file: Optional[UploadFile] = None):
     try:
@@ -126,13 +110,8 @@ async def get_answer(question: str = Form(...), file: Optional[UploadFile] = Non
                     return AnswerResponse(answer=await func(file))
                 else:
                     return AnswerResponse(answer=await func())
-        
-        # Fallback to NLP-based approach if no regex match found
-        answer = await get_embedding_from_external_api(question)
-        if not answer:
-            return AnswerResponse(answer="Failed to get response from AI Proxy.")
 
-        return AnswerResponse(answer=answer)
+        return AnswerResponse(answer="No matching function found for the given question.")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
