@@ -14,7 +14,8 @@
 #   "markdown",
 #   "duckdb",
 #   "whisper",
-#   "pillow"
+#   "pillow",
+#   "openpyxl"
 # ]
 
 from fastapi import FastAPI, UploadFile, Form
@@ -27,6 +28,7 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 import pandas as pd
 from datetime import datetime
+import io
 
 load_dotenv()
 
@@ -53,7 +55,7 @@ async def get_answer(question: str = Form(...), file: Optional[UploadFile] = Non
     # Check if the question matches the specific scenario
     if question == "What is the total margin for transactions before Fri Nov 25 2022 06:28:05 GMT+0530 (India Standard Time) for Theta sold in IN (which may be spelt in different ways)?" and file:
         file_content = await file.read()
-        df = pd.read_excel(file.file)
+        df = pd.read_excel(io.BytesIO(file_content))
         
         # Clean and process the data
         df['Customer Name'] = df['Customer Name'].str.strip()
