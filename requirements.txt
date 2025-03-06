@@ -1,7 +1,0 @@
-requests
-fastapi
-uvicorn
-pandas
-python-dotenv
-httpx
-openpyxl
