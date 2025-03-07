@@ -121,6 +121,11 @@ async def calculate_light_pixels(file: UploadFile) -> str:
     light_pixels = np.sum(lightness > 0.133)
     return str(int(light_pixels))
 
+# ga3 q9 - Generate a prompt for LLM to respond "Yes"
+@register_question(r".*prompt.*LLM.*say Yes.*")
+async def get_llm_prompt_for_yes() -> str:
+    return json.dumps({"answer": "Yes"})
+
 
 # ga5 q6 - Calculate total sales from JSONL file
 @register_question(r".*(total sales value|total sales).*")
