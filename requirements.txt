@@ -7,3 +7,5 @@ pydantic
 httpx
 aiofiles
 python-multipart
+numpy
+pillow
