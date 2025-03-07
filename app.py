@@ -13,6 +13,10 @@ from datetime import datetime
 import io
 import json
 import re
+from PIL import Image
+import numpy as np
+import colorsys
+
 
 load_dotenv()
 
@@ -106,6 +110,17 @@ async def get_code_s_output() -> str:
             "webgpu": "enabled"
         }
     })
+
+# ga2 q5 - Calculate number of light pixels in an image
+@register_question(r".*number of pixels with lightness > 0.133.*")
+async def calculate_light_pixels(file: UploadFile) -> str:
+    file_content = await file.read()
+    image = Image.open(io.BytesIO(file_content))
+    rgb = np.array(image) / 255.0
+    lightness = np.apply_along_axis(lambda x: colorsys.rgb_to_hls(*x)[1], 2, rgb)
+    light_pixels = np.sum(lightness > 0.133)
+    return str(int(light_pixels))
+
 
 # ga5 q6 - Calculate total sales from JSONL file
 @register_question(r".*(total sales value|total sales).*")
