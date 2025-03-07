@@ -112,7 +112,7 @@ async def get_code_s_output() -> str:
     })
 
 # ga2 q5 - Calculate number of light pixels in an image
-@register_question(r".*number of pixels with lightness > 0.133.*")
+@register_question(r".*number of pixels with lightness.*")
 async def calculate_light_pixels(file: UploadFile) -> str:
     file_content = await file.read()
     image = Image.open(io.BytesIO(file_content))
