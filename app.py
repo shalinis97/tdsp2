@@ -54,7 +54,7 @@ def register_question(pattern: str):
 # ga1 q1 - Output of 'code -s' without escape characters
 @register_question(r".*output of code -s.*")
 async def get_code_s_output() -> str:
-    response_data = {
+    return '''{
         "Version": "Code 1.97.2 (e54c774e0add60467559eb0d1e229c6452cf8447, 2025-02-12T23:20:35.343Z)",
         "OS Version": "Windows_NT x64 10.0.26100",
         "CPUs": "12th Gen Intel(R) Core(TM) i3-1215U (8 x 2496)",
@@ -75,8 +75,8 @@ async def get_code_s_output() -> str:
             "webgl2": "enabled",
             "webgpu": "enabled"
         }
-    }
-    return json.dumps(response_data)
+    }'''
+
 
 
 
