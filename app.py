@@ -147,6 +147,18 @@ async def calculate_total_margin(file: UploadFile) -> str:
     total_margin = (total_sales - total_cost) / total_sales if total_sales != 0 else 0
     return f"{total_margin:.4f}"
 
+# ga5 q2 - Count unique student IDs in a text file
+@register_question(r".*Download.*text.* file.*q-clean-up-student-marks.txt.*(unique students|number of unique students|student IDs).*")
+async def count_unique_students(file: UploadFile) -> str:
+    file_content = await file.read()
+    lines = file_content.decode("utf-8").splitlines()
+    student_ids = set()
+    for line in lines:
+        match = re.search(r'-\s*(\w+)', line)
+        if match:
+            student_ids.add(match.group(1))
+    return str(len(student_ids))
+
 # ga5 q5 - Calculate Pizza sales in Mexico City with sales >= 158 units
 @register_question(r".*Pizza.*Mexico City.* at least 158 units.*")
 async def calculate_pizza_sales(file: UploadFile) -> str:
