@@ -54,7 +54,7 @@ def register_question(pattern: str):
 # ga1 q1 - Output of 'code -s' without escape characters
 @register_question(r".*output of code -s.*")
 async def get_code_s_output() -> str:
-    return '''{
+    response_data = {
         "Version": "Code 1.97.2 (e54c774e0add60467559eb0d1e229c6452cf8447, 2025-02-12T23:20:35.343Z)",
         "OS Version": "Windows_NT x64 10.0.26100",
         "CPUs": "12th Gen Intel(R) Core(TM) i3-1215U (8 x 2496)",
@@ -75,9 +75,8 @@ async def get_code_s_output() -> str:
             "webgl2": "enabled",
             "webgpu": "enabled"
         }
-    }'''
-
-
+    }
+    return json.dumps(response_data)
 
 
 #-------- GA2 questions---------
@@ -100,7 +99,7 @@ async def calculate_light_pixels(file: UploadFile) -> str:
 
 # ga3 q9 - Generate a prompt for LLM to respond "Yes"
 
-@register_question(r".*prompt.*LLM.*say Yes.*")
+@register_question(r".*(prompt|make).*LLM.*Yes..*")
 async def get_llm_prompt_for_yes() -> str:
     return "Yes"
 
@@ -111,7 +110,8 @@ async def get_llm_prompt_for_yes() -> str:
 #-------- GA5 questions---------
 
 # ga5 q1 - Calculate total margin from Excel file
-@register_question(r".*total margin.*Theta.*IN.*")
+@register_question(r".*margin.*Theta.*(?:IN|India).*before.*")
+
 async def calculate_total_margin(file: UploadFile) -> str:
     file_content = await file.read()
     df = pd.read_excel(io.BytesIO(file_content))
