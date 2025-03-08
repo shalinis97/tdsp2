@@ -191,7 +191,7 @@ async def calculate_total_sales(file: UploadFile) -> str:
 @register_question(r".*?(LGK).*?(appear|count|frequency).*?(key).*?")
 async def count_lgk_key(file: UploadFile) -> str:
     file_content = await file.read()
-    data = json.loads(file_content)
+    data = json.loads(file_content.decode("utf-8"))
     def count_key_occurrences(obj, key_to_count):
         count = 0
         if isinstance(obj, dict):
