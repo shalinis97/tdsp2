@@ -16,6 +16,7 @@ import re
 from PIL import Image
 import numpy as np
 import colorsys
+import httpx
 
 
 load_dotenv()
