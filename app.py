@@ -17,6 +17,7 @@ from PIL import Image
 import numpy as np
 import colorsys
 import httpx
+import feedparser
 
 
 load_dotenv()
@@ -132,6 +133,15 @@ async def get_max_latitude_algiers() -> str:
             max_latitude = float(bounding_box[1])
             return str(max_latitude)
     return "No data found"
+
+# ga4 q6 - Get link to the latest Hacker News post about Linux with at least 66 points
+@register_question(r".*?(Hacker News|link).*?(Linux).*?(66 points|minimum 66 points|66 or more points).*?")
+async def get_latest_hn_post_link() -> str:
+    feed_url = "https://hnrss.org/newest?q=Linux&points=66"
+    feed = feedparser.parse(feed_url)
+    if feed.entries:
+        return feed.entries[0].link
+    return "No relevant post found"
 
 
 #-------- end of GA4 questions-------
