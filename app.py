@@ -153,8 +153,9 @@ async def count_unique_students(file: UploadFile) -> str:
     file_content = await file.read()
     lines = file_content.decode("utf-8").splitlines()
     student_ids = set()
+    pattern = re.compile(r'-\s*([\w\d]+)::?Marks')
     for line in lines:
-        match = re.search(r'-\s*(\w+)', line)
+        match = pattern.search(line)
         if match:
             student_ids.add(match.group(1))
     return str(len(student_ids))
