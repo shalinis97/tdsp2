@@ -188,7 +188,10 @@ async def calculate_total_sales(file: UploadFile) -> str:
     return str(total_sales)
 
 # ga5 q7 - Count occurrences of "LGK" as a key in nested JSON
-@register_question(r".*?(LGK).*?(appear|count|frequency).*?(key).*?")
+
+#@register_question(r".*?(LGK).*?(appear|count|frequency).*?(key).*?")
+@register_question(r".*(LGK).*(appear|count|frequency)?.*(key).*")
+
 async def count_lgk_key(file: UploadFile) -> str:
     file_content = await file.read()
     data = json.loads(file_content.decode("utf-8"))
