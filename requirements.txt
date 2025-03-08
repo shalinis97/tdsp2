@@ -9,3 +9,4 @@ aiofiles
 python-multipart
 numpy
 pillow
+feedparser
