@@ -107,6 +107,35 @@ async def get_llm_prompt_for_yes() -> str:
 #------------------------------------
 
 
+#-------- GA4 questions---------
+
+# ga4 q5 - Get maximum latitude of Algiers in Algeria using Nominatim API
+@register_question(r".*?(maximum latitude|max latitude).*?(bounding box).*?(Algiers).*?(Algeria).*?")
+async def get_max_latitude_algiers() -> str:
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {
+        "q": "Algiers, Algeria",
+        "format": "json",
+        "limit": 1,
+        "addressdetails": 1,
+        "extratags": 1,
+        "polygon_geojson": 0,
+        "bounded": 1
+    }
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        if data and "boundingbox" in data[0]:
+            bounding_box = data[0]["boundingbox"]
+            max_latitude = float(bounding_box[1])
+            return str(max_latitude)
+    return "No data found"
+
+
+#-------- end of GA4 questions-------
+#----------------------------------------------------------------------------
+
 #-------- GA5 questions---------
 
 # ga5 q1 - Calculate total margin from Excel file
