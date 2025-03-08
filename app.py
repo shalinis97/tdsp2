@@ -221,7 +221,7 @@ async def calculate_pizza_sales(file: UploadFile) -> str:
     return str(int(mexico_city_sales))
 
 # ga5 q6 - Calculate total sales from JSONL file
-@register_question(r".*(total sales value|total sales).*")
+@register_question(r".*download.*data.*q-parse-partial-json.jsonl.*(total sales value|total sales).*")
 async def calculate_total_sales(file: UploadFile) -> str:
     file_content = await file.read()
     total_sales = 0
