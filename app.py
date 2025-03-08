@@ -110,7 +110,8 @@ async def get_llm_prompt_for_yes() -> str:
 #-------- GA5 questions---------
 
 # ga5 q1 - Calculate total margin from Excel file
-@register_question(r".*margin.*transactions.*before.* Theta.*(?:IN|India).*before.*")
+@register_question(r".*(margin).*?(transactions).*?(before).*?(Theta).*?(?:IN|India).*?(Nov|November).*")
+
 
 async def calculate_total_margin(file: UploadFile) -> str:
     file_content = await file.read()
