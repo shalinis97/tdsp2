@@ -148,7 +148,11 @@ async def calculate_total_margin(file: UploadFile) -> str:
     return f"{total_margin:.4f}"
 
 # ga5 q2 - Count unique student IDs in a text file
-@register_question(r".*Download.*text.* file.*q-clean-up-student-marks.txt.*(unique students|number of unique students|student IDs).*")
+
+
+# @register_question(r".*Download.*text.* file.*q-clean-up-student-marks.txt.*(unique students|number of unique students|student IDs).*")
+@register_question(r".*(unique.*students|student IDs).*?(file|download).*")
+
 async def count_unique_students(file: UploadFile) -> str:
     file_content = await file.read()
     lines = file_content.decode("utf-8").splitlines()
