@@ -146,6 +146,18 @@ async def calculate_total_margin(file: UploadFile) -> str:
     total_margin = (total_sales - total_cost) / total_sales if total_sales != 0 else 0
     return f"{total_margin:.4f}"
 
+# ga5 q5 - Calculate Pizza sales in Mexico City with sales >= 158 units
+@register_question(r".*Pizza.*Mexico City.* at least 158 units.*")
+async def calculate_pizza_sales(file: UploadFile) -> str:
+    file_content = await file.read()
+    sales_data = json.loads(file_content)
+    df = pd.DataFrame(sales_data)
+    mexico_city_variants = ["Mexico-City", "Mexiko City", "Mexico Cty", "Mexicocity", "Mexicoo City"]
+    df['city_standardized'] = df['city'].apply(lambda x: "Mexico City" if x in mexico_city_variants else x)
+    filtered_df = df[(df['product'] == "Pizza") & (df['sales'] >= 158)]
+    sales_by_city = filtered_df.groupby('city_standardized')['sales'].sum().reset_index()
+    mexico_city_sales = sales_by_city[sales_by_city['city_standardized'] == "Mexico City"]['sales'].sum()
+    return str(int(mexico_city_sales))
 
 # ga5 q6 - Calculate total sales from JSONL file
 @register_question(r".*(total sales value|total sales).*")
