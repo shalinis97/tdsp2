@@ -49,6 +49,65 @@ def register_question(pattern: str):
         return func
     return decorator
 
+#-------- GA1 questions---------
+
+# ga1 q1 - Output of 'code -s' without escape characters
+@register_question(r".*output of code -s.*")
+async def get_code_s_output() -> str:
+    return {
+        "Version": "Code 1.97.2 (e54c774e0add60467559eb0d1e229c6452cf8447, 2025-02-12T23:20:35.343Z)",
+        "OS Version": "Windows_NT x64 10.0.26100",
+        "CPUs": "12th Gen Intel(R) Core(TM) i3-1215U (8 x 2496)",
+        "Memory (System)": "23.73GB (12.82GB free)",
+        "VM": "0%",
+        "Screen Reader": "no",
+        "Process Argv": "--crash-reporter-id 5e69de63-700b-45e0-8939-d706ef7d699d",
+        "GPU Status": {
+            "2d_canvas": "enabled",
+            "canvas_oop_rasterization": "enabled_on",
+            "gpu_compositing": "enabled",
+            "multiple_raster_threads": "enabled_on",
+            "opengl": "enabled_on",
+            "rasterization": "enabled",
+            "video_decode": "enabled",
+            "video_encode": "enabled",
+            "webgl": "enabled",
+            "webgl2": "enabled",
+            "webgpu": "enabled"
+        }
+    }
+
+
+#-------- GA2 questions---------
+
+# ga2 q5 - Calculate number of light pixels in an image
+@register_question(r".*number of pixels with lightness.*")
+async def calculate_light_pixels(file: UploadFile) -> str:
+    file_content = await file.read()
+    image = Image.open(io.BytesIO(file_content))
+    rgb = np.array(image) / 255.0
+    lightness = np.apply_along_axis(lambda x: colorsys.rgb_to_hls(*x)[1], 2, rgb)
+    light_pixels = np.sum(lightness > 0.133)
+    return str(int(light_pixels))
+
+
+#-------- end of GA2 questions-------
+#------------------------------------
+
+#-------- GA3 questions---------
+
+# ga3 q9 - Generate a prompt for LLM to respond "Yes"
+
+@register_question(r".*prompt.*LLM.*say Yes.*")
+async def get_llm_prompt_for_yes() -> str:
+    return "Yes"
+
+#-------- end of GA3 questions-------
+#------------------------------------
+
+
+#-------- GA5 questions---------
+
 # ga5 q1 - Calculate total margin from Excel file
 @register_question(r".*total margin.*Theta.*IN.*")
 async def calculate_total_margin(file: UploadFile) -> str:
@@ -85,47 +144,6 @@ async def calculate_total_margin(file: UploadFile) -> str:
     total_margin = (total_sales - total_cost) / total_sales if total_sales != 0 else 0
     return f"{total_margin:.4f}"
 
-# ga1 q1 - Output of 'code -s'
-@register_question(r".*output of code -s.*")
-async def get_code_s_output() -> str:
-    return json.dumps({
-        "Version": "Code 1.97.2 (e54c774e0add60467559eb0d1e229c6452cf8447, 2025-02-12T23:20:35.343Z)",
-        "OS Version": "Windows_NT x64 10.0.26100",
-        "CPUs": "12th Gen Intel(R) Core(TM) i3-1215U (8 x 2496)",
-        "Memory (System)": "23.73GB (12.82GB free)",
-        "VM": "0%",
-        "Screen Reader": "no",
-        "Process Argv": "--crash-reporter-id 5e69de63-700b-45e0-8939-d706ef7d699d",
-        "GPU Status": {
-            "2d_canvas": "enabled",
-            "canvas_oop_rasterization": "enabled_on",
-            "gpu_compositing": "enabled",
-            "multiple_raster_threads": "enabled_on",
-            "opengl": "enabled_on",
-            "rasterization": "enabled",
-            "video_decode": "enabled",
-            "video_encode": "enabled",
-            "webgl": "enabled",
-            "webgl2": "enabled",
-            "webgpu": "enabled"
-        }
-    })
-
-# ga2 q5 - Calculate number of light pixels in an image
-@register_question(r".*number of pixels with lightness.*")
-async def calculate_light_pixels(file: UploadFile) -> str:
-    file_content = await file.read()
-    image = Image.open(io.BytesIO(file_content))
-    rgb = np.array(image) / 255.0
-    lightness = np.apply_along_axis(lambda x: colorsys.rgb_to_hls(*x)[1], 2, rgb)
-    light_pixels = np.sum(lightness > 0.133)
-    return str(int(light_pixels))
-
-# ga3 q9 - Generate a prompt for LLM to respond "Yes"
-@register_question(r".*prompt.*LLM.*say Yes.*")
-async def get_llm_prompt_for_yes() -> str:
-    return json.dumps("Yes")
-
 
 # ga5 q6 - Calculate total sales from JSONL file
 @register_question(r".*(total sales value|total sales).*")
@@ -151,6 +169,10 @@ async def get_answer(question: str = Form(...), file: Optional[UploadFile] = Non
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+#-------- end of GA5 questions-------
+#------------------------------------
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
