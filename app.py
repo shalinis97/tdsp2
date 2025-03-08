@@ -207,22 +207,7 @@ async def count_lgk_key(file: UploadFile) -> str:
     lgk_count = count_key_occurrences(data, "LGK")
     return str(lgk_count)
 
-@app.post("/api/", response_model=AnswerResponse)
-async def get_answer(question: str = Form(...), file: Optional[UploadFile] = Form(None)):
-    try:
-        for pattern, func in function_map.items():
-            if re.search(pattern, question, re.IGNORECASE):
-                if file and isinstance(file, UploadFile):
-                    return AnswerResponse(answer=await func(file))
-                else:
-                    return AnswerResponse(answer=await func())
 
-        return AnswerResponse(answer="No matching function found for the given question.")
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-'''
 @app.post("/api/", response_model=AnswerResponse)
 async def get_answer(question: str = Form(...), file: Optional[UploadFile] = None):
     try:
@@ -238,7 +223,7 @@ async def get_answer(question: str = Form(...), file: Optional[UploadFile] = Non
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-'''
+
 #-------- end of GA5 questions-------
 #------------------------------------
 
