@@ -1,3 +1,11 @@
-# Ignore environment and private key files
+# Ignore sensitive files
 .env
 *.pem
+
+# Ignore unwanted directories
+__pycache__/
+extracted_files/
+files/
+old code/
+ref/
+working_files/
