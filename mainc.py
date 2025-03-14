@@ -130,7 +130,7 @@ async def ga1_q8(question: str, file: UploadFile) -> str:
     return str(answer_value)
 
 # GA1 Q12 - Sum values for specific symbols across multiple files with different encodings
-@register_question(r".*sum up all the values where the symbol matches.*")
+@register_question(r".*What is the sum of all values associated with these symbols.*")
 async def ga1_q12(question: str, file: UploadFile) -> str:
     symbol_pattern = r"sum up all the values where the symbol matches (.+)"
     match = re.search(symbol_pattern, question)
@@ -138,6 +138,7 @@ async def ga1_q12(question: str, file: UploadFile) -> str:
         return "Invalid question format"
     symbols = match.group(1).split(',')
     symbols = [symbol.strip() for symbol in symbols]
+    print(f"Extracted symbols: {symbols}")  # Debug logging
     file_content = await file.read()
     with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
         zip_ref.extractall('extracted_files')
@@ -151,6 +152,7 @@ async def ga1_q12(question: str, file: UploadFile) -> str:
         file_path = os.path.join('extracted_files', file_name)
         df = pd.read_csv(file_path, encoding=encoding, sep='\t' if file_name.endswith('.txt') else ',')
         total_sum += df[df['symbol'].isin(symbols)]['value'].sum()
+    print(f"Total sum: {total_sum}")  # Debug logging
     return str(total_sum)
 
 
