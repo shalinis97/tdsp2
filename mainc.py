@@ -87,7 +87,7 @@ async def get_code_s_output(question: str) -> str:
     }
     return json.dumps(response_data)
 
-# GA1 Q2 - Extract email and make HTTP request
+# GA1 Q2 - Extract email and make HTTP request   --> ❌
 @register_question(r".*email set to.*")
 async def ga1_2(question: str) -> str:
     email_pattern = r"email set to ([\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,})"
@@ -95,7 +95,7 @@ async def ga1_2(question: str) -> str:
     if match:
         email = match.group(1)
         url = "https://httpbin.org/get"
-        command = ["http", "GET", url, f"email=={email}"]
+        command = ["https", "GET", url, f"email=={email}"]
         result = subprocess.run(command, capture_output=True, text=True)
         return result.stdout
     return "{\"error\": \"Email not found in the input text\"}"
