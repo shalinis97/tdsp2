@@ -130,7 +130,7 @@ async def ga1_q8(question: str, file: UploadFile) -> str:
     return str(answer_value)
 
 # GA1 Q12 - Sum values for specific symbols across multiple files with different encodings
-@register_question(r".*What is the sum of all values associated with these symbols.*")
+@register_question(r".*sum up all the values where the symbol matches.*")
 async def ga1_q12(question: str, file: UploadFile) -> str:
     symbol_pattern = r"sum up all the values where the symbol matches (.+)"
     match = re.search(symbol_pattern, question)
