@@ -1,6 +1,7 @@
 # Ignore sensitive files
 .env
 *.pem
+rules_to execute.txt
 
 # Ignore unwanted directories
 __pycache__/
@@ -9,3 +10,4 @@ files/
 old code/
 ref/
 working_files/
+.qodo

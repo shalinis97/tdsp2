@@ -24,8 +24,7 @@ warnings.filterwarnings("ignore")
 import io
 import re
 from dateutil import parser
-
-
+import subprocess
 
 
 
@@ -87,6 +86,19 @@ async def get_code_s_output(question: str) -> str:
         }
     }
     return json.dumps(response_data)
+
+# GA1 Q2 - Extract email and make HTTP request
+@register_question(r".*email set to.*")
+async def ga1_2(question: str) -> str:
+    email_pattern = r"email set to ([\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,})"
+    match = re.search(email_pattern, question)
+    if match:
+        email = match.group(1)
+        url = "https://httpbin.org/get"
+        command = ["http", "GET", url, f"email=={email}"]
+        result = subprocess.run(command, capture_output=True, text=True)
+        return result.stdout
+    return "{\"error\": \"Email not found in the input text\"}"
 
 
 # GA1 Q7 - Count the number of Wednesdays in a given date range ✅
@@ -171,7 +183,6 @@ async def count_different_lines(question: str, file: UploadFile) -> str:
         lines_b = file_b.readlines()
     different_lines_count = sum(1 for line_a, line_b in zip(lines_a, lines_b) if line_a != line_b)
     return str(different_lines_count)
-
 
 
 #-------- GA2 questions---------
