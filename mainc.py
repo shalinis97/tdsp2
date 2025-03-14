@@ -62,7 +62,7 @@ def register_question(pattern: str):
 #-------- GA1 questions---------
 # ga1 q1 - Output of 'code -s' without escape characters ✅
 @register_question(r".*output of code -s.*")
-async def get_code_s_output(question: str) -> str:
+async def ga1_q1(question: str) -> str:
     response_data = {
         "Version": "Code 1.97.2 (e54c774e0add60467559eb0d1e229c6452cf8447, 2025-02-12T23:20:35.343Z)",
         "OS Version": "Windows_NT x64 10.0.26100",
@@ -87,15 +87,15 @@ async def get_code_s_output(question: str) -> str:
     }
     return json.dumps(response_data)
 
-# GA1 Q2 - Extract email and make HTTP request   --> ❌
+# GA1 Q2 - Extract email and make HTTP request
 @register_question(r".*email set to.*")
-async def ga1_2(question: str) -> str:
+async def ga1_q2(question: str) -> str:
     email_pattern = r"email set to ([\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,})"
     match = re.search(email_pattern, question)
     if match:
         email = match.group(1)
         url = "https://httpbin.org/get"
-        command = ["https", "GET", url, f"email=={email}"]
+        command = ["http", "GET", url, f"email=={email}"]
         result = subprocess.run(command, capture_output=True, text=True)
         return result.stdout
     return "{\"error\": \"Email not found in the input text\"}"
@@ -103,7 +103,7 @@ async def ga1_2(question: str) -> str:
 
 # GA1 Q7 - Count the number of Wednesdays in a given date range ✅
 @register_question(r".*How many Wednesdays are there in the date range.*")
-async def count_wednesdays(question: str) -> str:
+async def ga1_q7(question: str) -> str:
     match = re.search(r".*How many Wednesdays are there in the date range (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2}).*", question)
     if not match:
         return "Invalid question format"
@@ -120,7 +120,7 @@ async def count_wednesdays(question: str) -> str:
 
 # GA1 Q8 - Import file to get answer from CSV ✅
 @register_question(r".*Download and unzip file .* which has a single extract.csv file inside.*")
-async def get_csv_answer(question: str, file: UploadFile) -> str:
+async def ga1_q8(question: str, file: UploadFile) -> str:
     file_content = await file.read()
     with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
         zip_ref.extractall('extracted_files')
@@ -132,7 +132,7 @@ async def get_csv_answer(question: str, file: UploadFile) -> str:
 
 #GA1 Q16 - Calculate the sum of all numbers in a text file   -- ❌ recheck sha256 hash is not giving correct output
 @register_question(r".*Download .* and extract it. Use mv to move all files under folders into an empty folder. Then rename all files replacing each digit with the next.*")
-async def move_rename_files(question: str, file: UploadFile) -> str:
+async def ga1_q16(question: str, file: UploadFile) -> str:
     import hashlib
     file_content = await file.read()
     with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
@@ -174,7 +174,7 @@ async def move_rename_files(question: str, file: UploadFile) -> str:
 
 # GA1 Q17 - Count the number of different lines between two files ✅
 @register_question(r".*Download .* and extract it. It has 2 nearly identical files, a.txt and b.txt, with the same number of lines. How many lines are different between a.txt and b.txt?.*")
-async def count_different_lines(question: str, file: UploadFile) -> str:
+async def ga1_q17(question: str, file: UploadFile) -> str:
     file_content = await file.read()
     with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
         zip_ref.extractall('extracted_files')
@@ -187,9 +187,9 @@ async def count_different_lines(question: str, file: UploadFile) -> str:
 
 #-------- GA2 questions---------
 
-# ga2 q5 - Calculate number of light pixels in an image ✅
+# GA2 Q5 - Calculate number of light pixels in an image ✅
 @register_question(r".*Create a new Google Colab notebook and run this code \(after fixing a mistake in it\) to calculate the number of pixels with a certain minimum brightness.*")
-async def calculate_light_pixels(file: UploadFile) -> str:
+async def ga2_q5(file: UploadFile) -> str:
     file_content = await file.read()
     image = Image.open(io.BytesIO(file_content))
     rgb = np.array(image) / 255.0
@@ -206,10 +206,10 @@ async def calculate_light_pixels(file: UploadFile) -> str:
 
 #-------- GA3 questions---------
 
-# ga3 q9 - Generate a prompt for LLM to respond "Yes" ✅
+# GA3 Q9 - Generate a prompt for LLM to respond "Yes" ✅
 
 @register_question(r".*(prompt|make).*LLM.*Yes..*")
-async def get_llm_prompt_for_yes(question: str) -> str:
+async def ga3_q9(question: str) -> str:
     return "Fire is wet"
 
 #-------- end of GA3 questions-------
@@ -218,9 +218,9 @@ async def get_llm_prompt_for_yes(question: str) -> str:
 
 #-------- GA4 questions---------
 
-# ga4 q5 - Get maximum latitude of Algiers in Algeria using Nominatim API ✅
+# GA4 Q5 - Get maximum latitude of Algiers in Algeria using Nominatim API ✅
 @register_question(r".*?(maximum latitude|max latitude).*?(bounding box).*?city (.*?) in the country (.*?) on the Nominatim API.*")
-async def get_max_latitude_city_country(question: str) -> str:
+async def ga4_q5(question: str) -> str:
     match = re.search(r".*?(maximum latitude|max latitude).*?(bounding box).*?city (.*?) in the country (.*?) on the Nominatim API.*", question, re.IGNORECASE)
     if not match:
         return "Invalid question format"
@@ -246,9 +246,9 @@ async def get_max_latitude_city_country(question: str) -> str:
             return str(max_latitude)
     return "No data found"
 
-# ga4 q6 - Get link to the latest Hacker News post about Linux with at least 66 points 
+# GA4 Q6 - Get link to the latest Hacker News post about Linux with at least 66 points 
 @register_question(r".*?(Hacker News|link).*?(Linux).*?(66 points|minimum 66 points|66 or more points).*?")
-async def get_latest_hn_post_link() -> str:
+async def ga4_q6() -> str:
     feed_url = "https://hnrss.org/newest?q=Linux&points=66"
     feed = feedparser.parse(feed_url)
     if feed.entries:
@@ -261,7 +261,7 @@ async def get_latest_hn_post_link() -> str:
 
 #-------- GA5 questions---------
 
-# ga5 q1 - Calculate total margin from Excel file
+# GA5 Q1 - Calculate total margin from Excel file
 
 import re
 import io
@@ -272,7 +272,7 @@ import pandas as pd
 from fastapi import UploadFile
 
 @register_question(r".*Download the Sales Excel file: .* What is the total margin for transactions before (.*) for (.*) sold in (.*)\?.*")
-async def calculate_total_margin(question: str, file: UploadFile) -> str:
+async def ga5_q1(question: str, file: UploadFile) -> str:
     """
     This function cleans an Excel file and calculates the margin for transactions
     strictly *before* a specified local date/time, for a specified product and country.
@@ -367,13 +367,13 @@ async def calculate_total_margin(question: str, file: UploadFile) -> str:
     # Return as a decimal, e.g. "0.2362" for 23.62%
     return f"{total_margin:.4f}"
 
-# ga5 q2 - Count unique student IDs in a text file
+# GA5 Q2 - Count unique student IDs in a text file
 
 
 # @register_question(r".*Download.*text.* file.*q-clean-up-student-marks.txt.*(unique students|number of unique students|student IDs).*")
 @register_question(r".*(unique.*students|student IDs).*?(file|download).*")
 
-async def count_unique_students(question: str, file: UploadFile) -> str:
+async def ga5_q2(question: str, file: UploadFile) -> str:
     file_content = await file.read()
     lines = file_content.decode("utf-8").splitlines()
     student_ids = set()
@@ -384,9 +384,9 @@ async def count_unique_students(question: str, file: UploadFile) -> str:
             student_ids.add(match.group(1))
     return str(len(student_ids))
 
-# ga5 q5 - Calculate Pizza sales in Mexico City with sales >= 158 units
+# GA5 Q5 - Calculate Pizza sales in Mexico City with sales >= 158 units
 @register_question(r".*Pizza.*Mexico City.* at least 158 units.*")
-async def calculate_pizza_sales(question: str, file: UploadFile) -> str:
+async def ga5_q5(question: str, file: UploadFile) -> str:
     file_content = await file.read()
     sales_data = json.loads(file_content)
     df = pd.DataFrame(sales_data)
@@ -397,9 +397,9 @@ async def calculate_pizza_sales(question: str, file: UploadFile) -> str:
     mexico_city_sales = sales_by_city[sales_by_city['city_standardized'] == "Mexico City"]['sales'].sum()
     return str(int(mexico_city_sales))
 
-# ga5 q6 - Calculate total sales from JSONL file
+# GA5 Q6 - Calculate total sales from JSONL file
 @register_question(r".*download.*data.*q-parse-partial-json.jsonl.*(total sales value|total sales).*")
-async def calculate_total_sales(question: str, file: UploadFile) -> str:
+async def ga5_q6(question: str, file: UploadFile) -> str:
     file_content = await file.read()
     total_sales = 0
     file_content_str = file_content.decode("utf-8")
@@ -407,12 +407,12 @@ async def calculate_total_sales(question: str, file: UploadFile) -> str:
     total_sales = sum(int(float(sales)) for sales in sales_matches)
     return str(total_sales)
 
-# ga5 q7 - Count occurrences of "LGK" as a key in nested JSON
+# GA5 Q7 - Count occurrences of "LGK" as a key in nested JSON
 
 #@register_question(r".*?(LGK).*?(appear|count|frequency).*?(key).*")
 @register_question(r".*(LGK).*(appear|count|frequency)?.*(key).*")
 
-async def count_lgk_key(question: str, file: UploadFile) -> str:
+async def ga5_q7(question: str, file: UploadFile) -> str:
     file_content = await file.read()
     data = json.loads(file_content.decode("utf-8"))
     def count_key_occurrences(obj, key_to_count):
