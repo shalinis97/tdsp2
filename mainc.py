@@ -129,6 +129,30 @@ async def ga1_q8(question: str, file: UploadFile) -> str:
     answer_value = df['answer'].iloc[0]
     return str(answer_value)
 
+# GA1 Q12 - Sum values for specific symbols across multiple files with different encodings
+@register_question(r".*sum up all the values where the symbol matches.*")
+async def ga1_q12(question: str, file: UploadFile) -> str:
+    symbol_pattern = r"sum up all the values where the symbol matches (.+)"
+    match = re.search(symbol_pattern, question)
+    if not match:
+        return "Invalid question format"
+    symbols = match.group(1).split(',')
+    symbols = [symbol.strip() for symbol in symbols]
+    file_content = await file.read()
+    with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
+        zip_ref.extractall('extracted_files')
+    total_sum = 0
+    file_encodings = {
+        'data1.csv': 'cp1252',
+        'data2.csv': 'utf-8',
+        'data3.txt': 'utf-16'
+    }
+    for file_name, encoding in file_encodings.items():
+        file_path = os.path.join('extracted_files', file_name)
+        df = pd.read_csv(file_path, encoding=encoding, sep='\t' if file_name.endswith('.txt') else ',')
+        total_sum += df[df['symbol'].isin(symbols)]['value'].sum()
+    return str(total_sum)
+
 
 #GA1 Q16 - Calculate the sum of all numbers in a text file   -- ❌ recheck sha256 hash is not giving correct output
 @register_question(r".*Download .* and extract it. Use mv to move all files under folders into an empty folder. Then rename all files replacing each digit with the next.*")
