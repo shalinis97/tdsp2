@@ -100,6 +100,17 @@ async def ga1_q2(question: str) -> str:
         return result.stdout
     return "{\"error\": \"Email not found in the input text\"}"
 
+# GA1 Q3 - Use npx and prettier to format README.md and get sha256sum
+@register_question(r".*npx and prettier.*")
+async def ga1_q3(question: str, file: UploadFile) -> str:
+    file_content = await file.read()
+    with open('README.md', 'wb') as f:
+        f.write(file_content)
+    command = ["npx", "-y", "prettier@3.4.2", "README.md"]
+    result = subprocess.run(command, capture_output=True, text=True)
+    sha256sum = subprocess.run(["sha256sum"], input=result.stdout.encode(), capture_output=True, text=True)
+    return sha256sum.stdout.split()[0]
+
 
 # GA1 Q7 - Count the number of Wednesdays in a given date range ✅
 @register_question(r".*How many Wednesdays are there in the date range.*")
@@ -213,16 +224,7 @@ async def ga2_q5(file: UploadFile) -> str:
 async def ga3_q9(question: str) -> str:
     return "Fire is wet"
 
-# GA3 Q3 - Use npx and prettier to format README.md and get sha256sum
-@register_question(r".*npx and prettier.*")
-async def ga3_q3(question: str, file: UploadFile) -> str:
-    file_content = await file.read()
-    with open('README.md', 'wb') as f:
-        f.write(file_content)
-    command = ["npx", "-y", "prettier@3.4.2", "README.md"]
-    result = subprocess.run(command, capture_output=True, text=True)
-    sha256sum = subprocess.run(["sha256sum"], input=result.stdout.encode(), capture_output=True, text=True)
-    return sha256sum.stdout.split()[0]
+
 
 #-------- end of GA3 questions-------
 #------------------------------------
