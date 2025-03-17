@@ -129,31 +129,6 @@ async def ga1_q8(question: str, file: UploadFile) -> str:
     answer_value = df['answer'].iloc[0]
     return str(answer_value)
 
-# GA1 Q12 - Sum values for specific symbols across multiple files with different encodings
-@register_question(r".*sum up all the values where the symbol matches.*")
-async def ga1_q12(question: str, file: UploadFile) -> str:
-    symbol_pattern = r"sum up all the values where the symbol matches (.+)"
-    match = re.search(symbol_pattern, question)
-    if not match:
-        return "Invalid question format"
-    symbols = match.group(1).split(',')
-    symbols = [symbol.strip() for symbol in symbols]
-    print(f"Extracted symbols: {symbols}")  # Debug logging
-    file_content = await file.read()
-    with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
-        zip_ref.extractall('extracted_files')
-    total_sum = 0
-    file_encodings = {
-        'data1.csv': 'cp1252',
-        'data2.csv': 'utf-8',
-        'data3.txt': 'utf-16'
-    }
-    for file_name, encoding in file_encodings.items():
-        file_path = os.path.join('extracted_files', file_name)
-        df = pd.read_csv(file_path, encoding=encoding, sep='\t' if file_name.endswith('.txt') else ',')
-        total_sum += df[df['symbol'].isin(symbols)]['value'].sum()
-    print(f"Total sum: {total_sum}")  # Debug logging
-    return str(total_sum)
 
 
 #GA1 Q16 - Calculate the sum of all numbers in a text file   -- ❌ recheck sha256 hash is not giving correct output
@@ -238,6 +213,17 @@ async def ga2_q5(file: UploadFile) -> str:
 async def ga3_q9(question: str) -> str:
     return "Fire is wet"
 
+# GA3 Q3 - Use npx and prettier to format README.md and get sha256sum
+@register_question(r".*npx and prettier.*")
+async def ga3_q3(question: str, file: UploadFile) -> str:
+    file_content = await file.read()
+    with open('README.md', 'wb') as f:
+        f.write(file_content)
+    command = ["npx", "-y", "prettier@3.4.2", "README.md"]
+    result = subprocess.run(command, capture_output=True, text=True)
+    sha256sum = subprocess.run(["sha256sum"], input=result.stdout.encode(), capture_output=True, text=True)
+    return sha256sum.stdout.split()[0]
+
 #-------- end of GA3 questions-------
 #------------------------------------
 
@@ -272,7 +258,7 @@ async def ga4_q5(question: str) -> str:
             return str(max_latitude)
     return "No data found"
 
-# GA4 Q6 - Get link to the latest Hacker News post about Linux with at least 66 points 
+# GA4 Q6 - Get link to the latest Hacker News post about Linux with at leas66 pointst  
 @register_question(r".*?(Hacker News|link).*?(Linux).*?(66 points|minimum 66 points|66 or more points).*?")
 async def ga4_q6() -> str:
     feed_url = "https://hnrss.org/newest?q=Linux&points=66"
