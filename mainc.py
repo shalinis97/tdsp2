@@ -102,16 +102,30 @@ async def ga1_q2(question: str) -> str:
         return result.stdout
     return "{\"error\": \"Email not found in the input text\"}"
 
-# GA1 Q3 - Use npx and prettier to format README.md and get sha256sum
-@register_question(r".*npx and prettier.*")
+# GA1 Q3 - Use npx and prettier to format README.md and get sha256sum ✅
+
+@register_question(r".*npx -y prettier@3.4.2 README.md | sha256sum.*")
 async def ga1_q3(question: str, file: UploadFile) -> str:
-    file_content = await file.read()
-    with open('README.md', 'wb') as f:
-        f.write(file_content)
-    command = ["npx", "-y", "prettier@3.4.2", "README.md"]
-    result = subprocess.run(command, capture_output=True, text=True)
-    sha256sum = subprocess.run(["sha256sum"], input=result.stdout.encode(), capture_output=True, text=True)
-    return sha256sum.stdout.split()[0]
+    try:
+        # Step 1: Save the uploaded file as README.md in a temp directory
+        file_path = f"/tmp/README.md"
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
+
+        # Step 2: Run the command: npx -y prettier@3.4.2 README.md | sha256sum
+        result = subprocess.run(
+            "npx -y prettier@3.4.2 README.md | sha256sum",
+            shell=True,
+            cwd="/tmp",
+            capture_output=True,
+            text=True
+        )
+
+        # Step 3: Extract and return only the SHA-256 hash
+        return result.stdout.split()[0] if result.stdout else "Error: No output"
+
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 
 # GA1 Q7 - Count the number of Wednesdays in a given date range ✅
@@ -144,7 +158,7 @@ async def ga1_q8(question: str, file: UploadFile) -> str:
 
 
 
-#GA1 Q16 - Calculate the sum of all numbers in a text file   -- ❌ recheck sha256 hash is not giving correct output
+#GA1 Q16 - Calculate the sum of all numbers in a text file   -- ✅ 
 @register_question(r".*grep . * | LC_ALL=C sort | sha256sum.*")
 async def ga1_q16(question: str, file: UploadFile) -> str:
     try:
