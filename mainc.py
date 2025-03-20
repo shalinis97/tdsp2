@@ -145,7 +145,7 @@ async def ga1_q8(question: str, file: UploadFile) -> str:
 
 
 #GA1 Q16 - Calculate the sum of all numbers in a text file   -- ❌ recheck sha256 hash is not giving correct output
-@register_question(r".*Download .* and extract it. Use mv to move all files under folders into an empty folder. Then rename all files replacing each digit with the next.*")
+@register_question(r".*grep . * | LC_ALL=C sort | sha256sum.*")
 async def ga1_q16(question: str, file: UploadFile) -> str:
     try:
         # Step 1: Save the uploaded ZIP file
