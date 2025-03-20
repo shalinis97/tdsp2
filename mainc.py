@@ -25,6 +25,8 @@ import io
 import re
 from dateutil import parser
 import subprocess
+import shutil
+from typing import Optional
 
 
 
@@ -145,43 +147,47 @@ async def ga1_q8(question: str, file: UploadFile) -> str:
 #GA1 Q16 - Calculate the sum of all numbers in a text file   -- ❌ recheck sha256 hash is not giving correct output
 @register_question(r".*Download .* and extract it. Use mv to move all files under folders into an empty folder. Then rename all files replacing each digit with the next.*")
 async def ga1_q16(question: str, file: UploadFile) -> str:
-    import hashlib
-    file_content = await file.read()
-    with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
-        zip_ref.extractall('extracted_files')
-    os.makedirs('extracted_files/empty_folder', exist_ok=True)
-    for root, dirs, files in os.walk('extracted_files'):
-        for file_name in files:
-            if root != 'extracted_files/empty_folder':
-                old_path = os.path.join(root, file_name)
-                new_path = os.path.join('extracted_files/empty_folder', file_name)
-                if os.path.exists(new_path):
-                    base, ext = os.path.splitext(file_name)
-                    counter = 1
-                    while os.path.exists(new_path):
-                        new_path = os.path.join('extracted_files/empty_folder', f"{base}_{counter}{ext}")
-                        counter += 1
-                os.rename(old_path, new_path)
-                print(f"Moved {old_path} to {new_path}")  # Add logging
-    for file_name in os.listdir('extracted_files/empty_folder'):
-        new_name = ''.join(str((int(char) + 1) % 10) if char.isdigit() else char for char in file_name)
-        os.rename(os.path.join('extracted_files/empty_folder', file_name), os.path.join('extracted_files/empty_folder', new_name))
-        print(f"Renamed {file_name} to {new_name}")  # Add logging
-    all_lines = []
-    for file_name in os.listdir('extracted_files/empty_folder'):
-        with open(os.path.join('extracted_files/empty_folder', file_name), 'r') as f:
-            lines = f.readlines()
-            print(f"Read {len(lines)} lines from {file_name}")  # Add logging
-            all_lines.extend(lines)
-    all_lines.sort()
-    print(f"Sorted lines: {all_lines}")  # Add logging
-    sha256_hash = hashlib.sha256()
-    for line in all_lines:
-        sha256_hash.update(line.encode('utf-8'))
-        print(f"Hashing line: {line.strip()}")  # Add logging
-    result = sha256_hash.hexdigest()
-    print(f"SHA-256 Hash: {result}")  # Add logging
-    return result
+    try:
+        # Step 1: Save the uploaded ZIP file
+        zip_path = f"/tmp/{file.filename}"  # Temporary path for extraction
+        extract_folder = f"/tmp/extracted_{os.path.splitext(file.filename)[0]}"
+        
+        with open(zip_path, "wb") as f:
+            f.write(await file.read())
+
+        # Step 2: Extract ZIP file
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_folder)
+
+        # Step 3: Move all files from subdirectories to the main folder
+        for root, dirs, files in os.walk(extract_folder):
+            for file in files:
+                old_path = os.path.join(root, file)
+                new_path = os.path.join(extract_folder, file)
+                if old_path != new_path:  # Avoid moving if already in the folder
+                    shutil.move(old_path, new_path)
+
+        # Step 4: Rename files (Replace each digit with the next one)
+        for file in os.listdir(extract_folder):
+            new_name = re.sub(r'\d', lambda x: str((int(x.group(0)) + 1) % 10), file)
+            old_path = os.path.join(extract_folder, file)
+            new_path = os.path.join(extract_folder, new_name)
+            os.rename(old_path, new_path)
+
+        # Step 5: Run the required bash command and get SHA-256 hash
+        result = subprocess.run(
+            'grep . * | LC_ALL=C sort | sha256sum',
+            shell=True,
+            cwd=extract_folder,
+            capture_output=True,
+            text=True
+        )
+
+        # Extract and return only the hash
+        return result.stdout.split()[0] if result.stdout else "Error: No output"
+
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 
 # GA1 Q17 - Count the number of different lines between two files ✅
