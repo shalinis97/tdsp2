@@ -27,6 +27,7 @@ from dateutil import parser
 import subprocess
 import shutil
 from typing import Optional
+from pathlib import Path
 
 
 
@@ -155,6 +156,105 @@ async def ga1_q8(question: str, file: UploadFile) -> str:
     df = pd.read_csv(csv_file_path)
     answer_value = df['answer'].iloc[0]
     return str(answer_value)
+
+# GA1 Q14 - find and replace a string in a file
+
+@register_question(r".*replace all \"IITM\".*")
+async def ga1_q14(question: str, file: UploadFile) -> str:
+    try:
+        # ✅ Step 1: Save and Extract ZIP
+        zip_path = f"/tmp/{file.filename}"
+        extract_folder = f"/tmp/extracted_{os.path.splitext(file.filename)[0]}"
+        os.makedirs(extract_folder, exist_ok=True)
+
+        with open(zip_path, "wb") as f:
+            f.write(await file.read())
+
+        # Extract ZIP preserving file structure
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_folder)
+
+        # ✅ Step 2: Replace "IITM" (case insensitive) with "IIT Madras"
+        for file_path in Path(extract_folder).rglob("*"):
+            if file_path.is_file():
+                with open(file_path, "r", encoding="utf-8", newline='') as f:
+                    content = f.read()
+
+                updated_content = re.sub(r"(?i)\bIITM\b", "IIT Madras", content)
+
+                with open(file_path, "w", encoding="utf-8", newline='') as f:
+                    f.write(updated_content)
+
+        # ✅ Step 3: Compute SHA-256 hash using `cat * | sha256sum`
+        result = subprocess.run(
+            "cat * | sha256sum",
+            shell=True,
+            cwd=extract_folder,
+            capture_output=True,
+            text=True
+        )
+
+        # Extract and return the SHA-256 hash
+        return result.stdout.split()[0] if result.stdout else "Error: No output"
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+# GA1 Q15 - filter files based on size and timestamp
+@register_question(r".*ls with options to list all files.*")
+async def ga1_q15(question: str, file: UploadFile) -> str:
+    try:
+        # ✅ Step 1: Extract size and date conditions from the question using regex
+        size_match = re.search(r"at least (\d+) bytes", question)
+        date_match = re.search(r"on or after ([\w, ]+ \d{4}, \d+:\d+ [apAP][mM] IST)", question)
+
+        if not size_match or not date_match:
+            return "Error: Could not extract size or date from the question."
+
+        min_size = int(size_match.group(1))  # Extracted minimum file size
+        date_str = date_match.group(1)  # Extracted modification date string
+
+        # ✅ Convert extracted date string to a datetime object
+        target_date = datetime.strptime(date_str, "%a, %d %b, %Y, %I:%M %p IST")
+
+        # ✅ Step 2: Save and Extract ZIP file
+        zip_path = f"/tmp/{file.filename}"
+        extract_folder = f"/tmp/extracted_{os.path.splitext(file.filename)[0]}"
+
+        with open(zip_path, "wb") as f:
+            f.write(await file.read())
+
+        # Extract using `unzip` to preserve timestamps
+        subprocess.run(["unzip", zip_path, "-d", extract_folder], check=True)
+
+        # ✅ Step 3: Run `ls -l --time-style=full-iso` to list files with size & timestamp
+        result = subprocess.run(
+            ["ls", "-l", "--time-style=full-iso", extract_folder],
+            capture_output=True,
+            text=True
+        )
+
+        # ✅ Step 4: Process the output using regex
+        lines = result.stdout.strip().split("\n")[1:]  # Skip the first line (total)
+        total_size = 0
+
+        for line in lines:
+            match = re.search(r"(\S+) +\S+ +\S+ +\S+ +(\d+) (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
+
+            if match:
+                size = int(match.group(2))  # Extracted file size
+                mod_time_str = match.group(3)  # Extracted modification time
+
+                mod_time = datetime.strptime(mod_time_str, "%Y-%m-%d %H:%M:%S")  # Convert to datetime
+
+                # ✅ Step 5: Check conditions and sum file sizes
+                if size >= min_size and mod_time >= target_date:
+                    total_size += size
+
+        return str(total_size)
+
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 
 
