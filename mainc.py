@@ -22,7 +22,7 @@ import re
 import warnings
 warnings.filterwarnings("ignore")
 import io
-import re
+import xml.etree.ElementTree as ET
 from dateutil import parser
 import subprocess
 import shutil
@@ -31,8 +31,9 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 import requests
 from urllib.parse import urlencode
-
-
+import tabula  # pip install tabula-py
+from PyPDF2 import PdfReader  # pip install PyPDF2
+import PyPDF2
 
 load_dotenv()
 
@@ -608,9 +609,6 @@ async def ga4_q5(question: str) -> str:
 
 # GA4 Q6 - Get link to the latest Hacker News post about "name" with point ✅
 
-import re
-import xml.etree.ElementTree as ET
-import httpx
 
 @register_question(r".*What is the link to the latest Hacker News post mentioning.*")
 async def ga4_q6(question: str) -> str:
@@ -754,8 +752,212 @@ async def ga4_q7(question: str) -> str:
     return "No users found matching the criteria."
 
 
+#GA4 Q9 - PDF MARKS (BIOLOGY, MATHS, PHYSICS, CHEM) BASED ON GROUPS
+
+@register_question(r".*marks of students who scored.*")
+async def ga4_q9(question: str, file: UploadFile) -> str:
+    """
+    Example question:
+      "What is the total Biology marks of students who scored 32 or more marks in Maths in groups 11-44 (including both groups)?"
+    
+    Because the PDF has one group per page, with heading "Student marks - Group X",
+    we parse each page individually, detect the group number, insert it as "Group",
+    and then combine all pages into a single DataFrame with columns like:
+      ["Maths", "Physics", "English", "Economics", "Biology", "Group"]
+    Then filter by sub2 >= mark1, group in [group1..group2], sum(sub1).
+    """
+
+    # 1) Extract sub1, mark1, sub2, group1, group2 from the question
+    match = re.search(
+        r"What is the total (.+?) marks of students who scored (\d+) or more marks in (.+?) in groups (\d+)-(\d+) \(including both groups\)\?",
+        question,
+        flags=re.IGNORECASE
+    )
+    if not match:
+        return (
+            "Invalid question format. Example:\n"
+            "What is the total Biology marks of students who scored 32 or more marks in Maths in groups 11-44 (including both groups)?"
+        )
+
+    sub1  = match.group(1).strip()  # e.g. "Biology"
+    mark1 = int(match.group(2))     # e.g. 32
+    sub2  = match.group(3).strip()  # e.g. "Maths"
+    grp1  = int(match.group(4))     # e.g. 11
+    grp2  = int(match.group(5))     # e.g. 44
+
+    # 2) Read the PDF from the UploadFile into memory, then write to a temp file
+    pdf_bytes = await file.read()
+    temp_pdf_path = "temp_uploaded.pdf"
+    with open(temp_pdf_path, "wb") as f:
+        f.write(pdf_bytes)
+
+    # 3) Determine how many pages are in the PDF (so we can parse each individually)
+    reader = PdfReader(temp_pdf_path)
+    total_pages = len(reader.pages)
+
+    all_dfs = []
+
+    # 4) For each page: 
+    #    a) read the text with PyPDF2 to find the heading "Student marks - Group X"
+    #    b) parse the table with tabula
+    #    c) label each row with the group number X, and store the DataFrame
+    for page_num in range(1, total_pages + 1):
+        page_index = page_num - 1  # PyPDF2 pages are 0-based
+
+        # (a) find "Student marks - Group X" in the page text
+        page_text = reader.pages[page_index].extract_text() or ""
+        # e.g.  "Student marks - Group 11"
+
+        group_match = re.search(r"Student marks\s*-\s*Group\s+(\d+)", page_text)
+        if not group_match:
+            # If we can't find a group # on this page, skip
+            continue
+
+        group_number = int(group_match.group(1))
+
+        # (b) parse the table on this page with tabula
+        try:
+            # We'll parse only this page
+            df_list = tabula.read_pdf(
+                temp_pdf_path,
+                pages=str(page_num),
+                multiple_tables=False,  # Each page is just one main table
+                lattice=True            # or stream=True, depending on PDF lines
+            )
+        except Exception as e:
+            # If tabula can't parse this page, skip or handle error
+            continue
+
+        if not df_list:
+            continue
+
+        # There's presumably one table per page
+        df_page = df_list[0]
+
+        # (c) Insert a "Group" column
+        df_page["Group"] = group_number
+
+        # We might rename columns if needed. The PDF columns are:
+        # ["Maths", "Physics", "English", "Economics", "Biology"]
+        # If tabula doesn't produce exactly those column names, rename them here.
+        # For example, if the first row is used as a header:
+        # df_page.columns = ["Maths", "Physics", "English", "Economics", "Biology", ...]
+        # OR if the PDF is recognized correctly, no rename needed.
+
+        all_dfs.append(df_page)
+
+    if not all_dfs:
+        return "No tables found across pages."
+
+    # Combine all pages into one DataFrame
+    df = pd.concat(all_dfs, ignore_index=True)
+
+    # 5) Convert numeric columns to numeric
+    # If the parsed column headers differ, adjust accordingly.
+    for col in ["Maths", "Physics", "English", "Economics", "Biology", "Group"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # 6) Check that sub1 and sub2 exist
+    if sub1 not in df.columns or sub2 not in df.columns:
+        return f"Columns '{sub1}' or '{sub2}' not found. Found: {list(df.columns)}"
+
+    # 7) Filter:
+    #    - df[sub2] >= mark1
+    #    - group in [grp1..grp2]
+    mask = (
+        (df[sub2] >= mark1) &
+        (df["Group"].between(grp1, grp2, inclusive="both"))
+    )
+    filtered_df = df[mask]
+
+    # 8) Sum the sub1 column
+    total_marks = filtered_df[sub1].sum(skipna=True)
+
+    return str(total_marks)
 
 
+#GA4 Q10 - What is the markdown content of the PDF, formatted with prettier@3.4.2?
+
+@register_question(r".*What is the markdown content of the PDF, formatted with prettier@3.4.2.*")
+async def ga4_q10(question: str, file: UploadFile) -> str:
+    """
+    Example question:
+      "What is the markdown content of the PDF, formatted with prettier@3.4.2?"
+
+    Steps:
+      1) Extract text from the uploaded PDF
+      2) Convert to naive Markdown
+      3) (Optional) Run 'npx prettier@3.4.2 --parser=markdown' on the Markdown to format it
+      4) Return the final, formatted Markdown string
+    """
+
+    # 1) Read PDF from UploadFile into memory, then parse text
+    pdf_bytes = await file.read()
+    pdf_path = "temp_to_markdown.pdf"
+    with open(pdf_path, "wb") as f:
+        f.write(pdf_bytes)
+
+    # Use PyPDF2 to extract text from each page
+    with open(pdf_path, "rb") as f:
+        reader = PyPDF2.PdfReader(f)
+        all_text = []
+        for page_idx in range(len(reader.pages)):
+            page = reader.pages[page_idx]
+            page_text = page.extract_text() or ""
+            # Basic cleanup
+            page_text = page_text.strip()
+            # Collect
+            all_text.append(page_text)
+    raw_text = "\n\n".join(all_text)
+
+    # 2) Convert to a naive Markdown. For example:
+    #    - Split on double newlines to get paragraphs
+    #    - Insert blank lines or bullet points, etc.
+    paragraphs = raw_text.split("\n\n")
+    markdown_lines = []
+    for paragraph in paragraphs:
+        paragraph = paragraph.strip()
+        if not paragraph:
+            continue
+
+        # If the paragraph starts with a bullet marker or dash, keep it
+        # Otherwise, treat it as a normal paragraph
+        # (This is extremely simplistic - adjust as needed)
+        if re.match(r"^[*•\-]\s", paragraph):
+            markdown_lines.append(paragraph)
+        else:
+            # Possibly add a blank line before paragraphs in Markdown
+            markdown_lines.append(paragraph + "\n")
+
+    naive_markdown = "\n".join(markdown_lines)
+
+    # 3) (Optional) Run Prettier on the Markdown
+    #    This requires Node.js, npx, and an internet or local environment with 'prettier@3.4.2' installed
+    try:
+        with open("temp.md", "w", encoding="utf-8") as temp_md_file:
+            temp_md_file.write(naive_markdown)
+
+        # Format with npx prettier@3.4.2
+        subprocess.run(
+            ["npx", "prettier@3.4.2", "--parser=markdown", "--write", "temp.md"],
+            check=True,
+            capture_output=True,
+        )
+
+        # Read back the formatted MD
+        with open("temp.md", "r", encoding="utf-8") as temp_md_file:
+            formatted_markdown = temp_md_file.read()
+
+    except FileNotFoundError:
+        # If npx or Node is not installed, fallback to naive_markdown
+        formatted_markdown = naive_markdown
+    except subprocess.CalledProcessError as e:
+        # If Prettier fails, fallback to naive_markdown
+        formatted_markdown = naive_markdown
+
+    # 4) Return the final, formatted Markdown
+    return formatted_markdown
 
 #-------- end of GA4 questions-------
 #----------------------------------------------------------------------------

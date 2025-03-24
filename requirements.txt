@@ -14,3 +14,6 @@ python-dateutil
 requests
 numpy
 beautifulsoup4
+tabula-py
+PyPDF2
+JPype1
