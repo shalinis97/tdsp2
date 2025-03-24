@@ -28,6 +28,9 @@ import subprocess
 import shutil
 from typing import Optional
 from pathlib import Path
+from bs4 import BeautifulSoup
+import requests
+from urllib.parse import urlencode
 
 
 
@@ -419,6 +422,162 @@ async def ga3_q9(question: str) -> str:
 
 #-------- GA4 questions---------
 
+# GA4 Q1 - Get the total no of ducks from the espn page ✅
+@register_question(r".*total number of ducks.*")
+async def ga4_q1(question: str) -> str:
+    """
+    Answers questions about the total number of ducks on a given ESPN Cricinfo 
+    ODI batting stats page, e.g.:
+      "What is the total number of ducks across players on page number 30 of ESPN Cricinfo's ODI batting stats?"
+    
+    Steps:
+      1) Extract page number from the question: "page number <digits>"
+      2) Build the URL for that page
+      3) Fetch the HTML with a browser-like user-agent to avoid 403
+      4) Find the 'engineTable' that contains a header named "Player"
+      5) Determine which column is labeled "0" (ducks)
+      6) Gather data rows (class="data1"), sum integer values in that '0' column
+      7) Return the sum as a string
+    """
+
+    # 1) Extract page number from question
+    match = re.search(r"page number\s+(\d+)", question, flags=re.IGNORECASE)
+    if not match:
+        return "No valid page number found in the question."
+
+    page_num = int(match.group(1))
+
+    # 2) Build the ESPN Cricinfo ODI batting stats URL
+    url = (
+        "https://stats.espncricinfo.com/stats/engine/stats/"
+        f"index.html?class=2;template=results;type=batting;page={page_num}"
+    )
+
+    # 3) Use a custom User-Agent to avoid 403 Forbidden
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
+        )
+    }
+
+    response = requests.get(url, headers=headers)
+    if not response.ok:
+        return f"Error fetching page {page_num}. HTTP status: {response.status_code}"
+
+    # 4) Parse the HTML with BeautifulSoup
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # Find a table with class="engineTable" that has a <th> named "Player"
+    tables = soup.find_all("table", class_="engineTable")
+    stats_table = None
+    for table in tables:
+        if table.find("th", string="Player"):
+            stats_table = table
+            break
+
+    if not stats_table:
+        return "Could not find the batting stats table on the page."
+
+    # 5) Extract the table headers
+    headers_list = [th.get_text(strip=True) for th in stats_table.find_all("th")]
+
+    # Find the index of the "0" column
+    duck_col_index = None
+    for i, header in enumerate(headers_list):
+        if header == "0":
+            duck_col_index = i
+            break
+
+    if duck_col_index is None:
+        return "Could not find the '0' (ducks) column in the table."
+
+    # 6) Extract the data rows; ESPN often labels them with class="data1"
+    data_rows = stats_table.find_all("tr", class_="data1")
+
+    # Sum the ducks
+    total_ducks = 0
+    for row in data_rows:
+        cells = row.find_all("td")
+        if len(cells) > duck_col_index:
+            duck_value = cells[duck_col_index].get_text(strip=True)
+            if duck_value.isdigit():
+                total_ducks += int(duck_value)
+
+    # 7) Return the total as a string
+    return str(total_ducks)
+
+
+#GA4 Q4 - Json weather description for a city ✅
+@register_question(r".*What is the JSON weather forecast description for.*")
+async def ga4_q4(question: str) -> str:
+    """
+    Answers a question like:
+        "What is the JSON weather forecast description for Seoul?"
+    
+    1) Extract city name from question via regex
+    2) Use BBC's location service to find the city ID
+    3) Fetch BBC weather page for that ID
+    4) Parse the daily summary from the weather page
+    5) Create a dictionary mapping each date to its summary
+    6) Return that dictionary as a JSON string
+    """
+    # 1) Extract city name using regex
+    match = re.search(r".*What is the JSON weather forecast description for (.*)\?", question, flags=re.IGNORECASE)
+    if not match:
+        return "Invalid question format. Please ask 'What is the JSON weather forecast description for <city>?'"
+    city = match.group(1).strip()
+
+    # 2) Build the BBC location service URL to get the city ID
+    location_url = 'https://locator-service.api.bbci.co.uk/locations?' + urlencode({
+       'api_key': 'AGbFAKx58hyjQScCXIYrxuEwJh2W2cmv',
+       's': city,
+       'stack': 'aws',
+       'locale': 'en',
+       'filter': 'international',
+       'place-types': 'settlement,airport,district',
+       'order': 'importance',
+       'a': 'true',
+       'format': 'json'
+    })
+
+    try:
+        # Fetch location data (JSON)
+        loc_result = requests.get(location_url).json()
+        # The first search result's ID
+        city_id = loc_result['response']['results']['results'][0]['id']
+    except (KeyError, IndexError) as e:
+        return f"Could not find weather location for '{city}'. Error: {e}"
+
+    # 3) Build the BBC weather page URL
+    weather_url = 'https://www.bbc.com/weather/' + city_id
+
+    # 4) Fetch the weather page HTML
+    response = requests.get(weather_url)
+    if not response.ok:
+        return f"Error fetching weather data for {city}. HTTP status: {response.status_code}"
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    # 5) Parse the daily summary (div with class 'wr-day-summary')
+    daily_summary_div = soup.find('div', attrs={'class': 'wr-day-summary'})
+    if not daily_summary_div:
+        return f"Could not find daily summary for {city} on BBC Weather."
+
+    # Extract text and split into list of descriptions
+    daily_summary_list = re.findall('[a-zA-Z][^A-Z]*', daily_summary_div.text)
+
+    # 6) Create date list (assuming one summary per day)
+    datelist = pd.date_range(datetime.today(), periods=len(daily_summary_list)).tolist()
+    datelist = [date.date().strftime('%Y-%m-%d') for date in datelist]
+
+    # Map each date to its summary
+    weather_data = {date: desc for date, desc in zip(datelist, daily_summary_list)}
+
+    # 7) Convert dictionary to JSON and return
+    return json.dumps(weather_data, indent=4)
+
+
 # GA4 Q5 - Get maximum latitude of Algiers in Algeria using Nominatim API ✅
 @register_question(r".*?(maximum latitude|max latitude).*?(bounding box).*?city (.*?) in the country (.*?) on the Nominatim API.*")
 async def ga4_q5(question: str) -> str:
@@ -447,14 +606,155 @@ async def ga4_q5(question: str) -> str:
             return str(max_latitude)
     return "No data found"
 
-# GA4 Q6 - Get link to the latest Hacker News post about Linux with at leas66 pointst  
-@register_question(r".*?(Hacker News|link).*?(Linux).*?(66 points|minimum 66 points|66 or more points).*?")
-async def ga4_q6() -> str:
-    feed_url = "https://hnrss.org/newest?q=Linux&points=66"
-    feed = feedparser.parse(feed_url)
-    if feed.entries:
-        return feed.entries[0].link
-    return "No relevant post found"
+# GA4 Q6 - Get link to the latest Hacker News post about "name" with point ✅
+
+import re
+import xml.etree.ElementTree as ET
+import httpx
+
+@register_question(r".*What is the link to the latest Hacker News post mentioning.*")
+async def ga4_q6(question: str) -> str:
+    """
+    Example question:
+      "What is the link to the latest Hacker News post mentioning DuckDB having at least 71 points?"
+    
+    Steps:
+      1) Regex capture: search term (e.g. "DuckDB") and integer points (e.g. "71").
+      2) Make an async GET request to https://hnrss.org/newest?q=<term>&points=<points> using httpx.
+      3) Parse the XML with ElementTree, find the first <item>, and return the <link>.
+      4) If no items found, or question is invalid, return a relevant message.
+    """
+
+    # 1) Extract search term and points from the question
+    match = re.search(
+        r"What is the link to the latest Hacker News post mentioning (.+?) having at least (\d+) points\?",
+        question,
+        flags=re.IGNORECASE
+    )
+    if not match:
+        return ("Invalid question format. Please ask: "
+                "'What is the link to the latest Hacker News post mentioning <term> having at least <points> points?'")
+    search_term = match.group(1).strip()
+    min_points = match.group(2).strip()
+
+    # 2) Build the HNRSS URL and parameters
+    url = "https://hnrss.org/newest"
+    params = {
+        "q": search_term,
+        "points": min_points
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()  # Raise if e.g. 4xx/5xx
+            rss_content = response.text
+
+            # 3) Parse the RSS feed
+            root = ET.fromstring(rss_content)
+            # Items are typically found under <channel><item>
+            items = root.findall(".//item")
+
+            if not items:
+                return f"No Hacker News posts found mentioning {search_term} with at least {min_points} points"
+
+            # Grab the first item (most recent)
+            latest_item = items[0]
+
+            # Extract link from <link> tag
+            link_elem = latest_item.find("link")
+            link = link_elem.text if link_elem is not None else None
+
+            if not link:
+                return "No link found for the latest HN post"
+
+            return link
+
+    except Exception as e:
+        return f"Failed to fetch or parse HNRSS feed: {str(e)}"
+
+
+#GA4 Q7 - Using the GitHub API, find all users located in the city ✅
+
+@register_question(r".*Using the GitHub API, find all users located in the city.*")
+async def ga4_q7(question: str) -> str:
+    """
+    Example question:
+      "Using the GitHub API, find all users located in the city Basel with over 80 followers?"
+    
+    Steps:
+      1) Extract 'city' and 'followers' from the question with regex.
+      2) Build the GitHub search query for location:<city> and followers:> <followers>.
+      3) Sort by 'joined' descending.
+      4) Iterate results, find the newest user (by join date) that was created before the cutoff date.
+      5) Return that user's information or a 'No users found' message.
+    """
+
+    # 1) Extract the city and followers from the question
+    match = re.search(
+        r"Using the GitHub API, find all users located in the city (.+?) with over (\d+) followers",
+        question,
+        flags=re.IGNORECASE
+    )
+    if not match:
+        return (
+            "Invalid question format. Please ask in the form: "
+            "'Using the GitHub API, find all users located in the city <City> with over <followers> followers?'"
+        )
+
+    city = match.group(1).strip()
+    followers = match.group(2).strip()
+
+    # Build the query for the GitHub API
+    # e.g. 'location:Basel followers:>80'
+    query = f'location:"{city}" followers:>{followers}'
+    params = {
+        'q': query,
+        'sort': 'joined',
+        'order': 'desc'
+    }
+
+    url = 'https://api.github.com/search/users'
+    response = requests.get(url, params=params)
+    if response.status_code != 200:
+        return f"GitHub API request failed with status {response.status_code}"
+
+    data = response.json()
+    if 'items' not in data:
+        return "No users found in the response."
+
+    # Define the cutoff date
+    cutoff_date_str = '2025-02-08T17:15:15Z'
+    cutoff_date = datetime.strptime(cutoff_date_str, '%Y-%m-%dT%H:%M:%SZ')
+
+    # Iterate through the search results in descending join order
+    for user in data.get('items', []):
+        # user['url'] is the API URL for details about that user
+        user_response = requests.get(user['url'])
+        if user_response.status_code != 200:
+            # Could skip or return an error message
+            continue
+        user_data = user_response.json()
+        
+        # Parse the created_at date
+        created_at_str = user_data.get('created_at')
+        if not created_at_str:
+            continue
+        created_at = datetime.strptime(created_at_str, '%Y-%m-%dT%H:%M:%SZ')
+
+        # Check if this user was created before the cutoff date
+        if created_at < cutoff_date:
+            # Return or build the user info
+            username = user_data.get('login', 'Unknown')
+            profile_url = user_data.get('html_url', 'Unknown')
+            created_date = user_data.get('created_at', 'Unknown')
+            return (created_date)
+
+    # If we exhaust the list and find no user matching the cutoff criterion
+    return "No users found matching the criteria."
+
+
+
 
 
 #-------- end of GA4 questions-------
@@ -585,21 +885,166 @@ async def ga5_q2(question: str, file: UploadFile) -> str:
             student_ids.add(match.group(1))
     return str(len(student_ids))
 
-# GA5 Q5 - Calculate Pizza sales in Mexico City with sales >= 158 units
-@register_question(r".*Pizza.*Mexico City.* at least 158 units.*")
+# GA5 Q5 - Calculate from JSON file - itme name, city name and units qty
+
+@register_question(r".*[Hh]ow\s+many\s+units\s+of\s+(?P<product>.*?)\s+were\s+sold\s+in\s+(?P<city>.*?)\s+on\s+transactions\s+with\s+at\s+least\s+(?P<min_units>\d+)\s+units.*")
 async def ga5_q5(question: str, file: UploadFile) -> str:
+    # -------------------------------------------------------------------
+    # 1) Extract parameters from the question (product, city, min_units)
+    # -------------------------------------------------------------------
+    match = re.match(
+        r".*[Hh]ow\s+many\s+units\s+of\s+(?P<product>.*?)\s+were\s+sold\s+in\s+(?P<city>.*?)\s+on\s+transactions\s+with\s+at\s+least\s+(?P<min_units>\d+)\s+units.*",
+        question,
+    )
+    if not match:
+        return "0"  # or raise an exception if you want to enforce format
+
+    product_name = match.group("product").strip()
+    user_city_input = match.group("city").strip()
+    min_sales = int(match.group("min_units"))
+
+    # -------------------------------------------------------------------
+    # 2) Load the JSON file into a Pandas DataFrame
+    # -------------------------------------------------------------------
     file_content = await file.read()
     sales_data = json.loads(file_content)
     df = pd.DataFrame(sales_data)
-    mexico_city_variants = ["Mexico-City", "Mexiko City", "Mexico Cty", "Mexicocity", "Mexicoo City"]
-    df['city_standardized'] = df['city'].apply(lambda x: "Mexico City" if x in mexico_city_variants else x)
-    filtered_df = df[(df['product'] == "Pizza") & (df['sales'] >= 158)]
-    sales_by_city = filtered_df.groupby('city_standardized')['sales'].sum().reset_index()
-    mexico_city_sales = sales_by_city[sales_by_city['city_standardized'] == "Mexico City"]['sales'].sum()
-    return str(int(mexico_city_sales))
+
+    # -------------------------------------------------------------------
+    # 3) Create a dictionary mapping "canonical city name" -> "set of variants"
+    #    Extend this based on your dataset analysis
+    # -------------------------------------------------------------------
+    city_variants_map = {
+        "mexico city": {
+            "mexico city", "mexico-city", "mexicocity", "mexiko city", "mexico cty", "mexicoo city"
+        },
+        "london": {
+            "london", "londen", "londn", "lonndon", "londonn", "londdon", "londnn"
+        },
+        "dhaka": {
+            "dhaka", "dhakaa", "dhaaka", "dhacka"
+        },
+        "karachi": {
+            "karachi", "karachee", "karachii", "karrachii", "karrchi", "karachy"
+        },
+        "lahore": {
+            "lahore", "lahoore", "lahhore", "lahorre", "lahor"
+        },
+        "cairo": {
+            "cairo", "caiiro", "ciro", "kairo", "kairoo"
+        },
+        "istanbul": {
+            "istanbul", "istambul", "istanboul", "istnabul", "istaanbul"
+        },
+        "chennai": {
+            "chennai", "chennay", "chennnai", "chenai", "chenaii"
+        },
+        "beijing": {
+            "beijing", "bejing", "bejeing", "bejjing", "beijng", "bijing"
+        },
+        "mumbai": {
+            "mumbai", "mumbay", "mumbbi", "mumbei", "mumby", "mombai", "mowmbai"  # add as needed
+        },
+        "bangalore": {
+            "bangalore", "banglore", "bangaloore", "bengalore", "bangaloree"
+        },
+        "shanghai": {
+            "shanghai", "shangai", "shanhai", "shanghii", "shanghhi"  # etc.
+        },
+        "tokyo": {
+            "tokyo", "tokyoo", "tokeyo", "toikyo", "tokio"
+        },
+        "sao paulo": {
+            "sao paulo", "sao pualo", "sao paoulo", "sao paolo", "sao paoulo", "sau paulo", "são paulo"
+        },
+        "rio de janeiro": {
+            "rio de janeiro", "rio de janiero", "rio de janeirro", "rio de janiro", "rio de janero"
+        },
+        "paris": {
+            "paris", "paries", "pariss", "parris"
+        },
+        "kolkata": {
+            "kolkata", "kolkatta", "kolcata", "kolcotta", "kolkataa"
+        },
+        "osaka": {
+            "osaka", "osakaa", "osakka", "osakkaa", "osaca", "oosaka"
+        },
+        "lagos": {
+            "lagos", "lagoss", "lagose", "laggoss"
+        },
+        "bogota": {
+            "bogota", "bogotaa", "bogotaà", "bogata", "bogotta", "bogotá"
+        },
+        "buenos aires": {
+            "buenos aires", "buenes aires", "buienos aires", "buenoss aires", "buenos airres", "buenos aeres"
+        },
+        "jakarta": {
+            "jakarta", "jakata", "jakkarta", "jakarata", "jakkarta"
+        },
+        "kinshasa": {
+            "kinshasa", "kinshasaa", "kinshasha", "kinshassa", "kinshas"
+        },
+        "manila": {
+            "manila", "manilaa", "mannila", "manil", "manla"
+        },
+        "delhi": {
+            "delhi", "deli", "delly", "dehly", "dhelhi"
+        },
+    }
+    # Make *every* sub-variant lowercase for easy matching
+    # We'll create a helper dictionary: sub_variant_map[lower_str] = canonical_name
+    sub_variant_map = {}
+    for canonical, variants in city_variants_map.items():
+        for variant in variants:
+            sub_variant_map[variant.lower()] = canonical
+
+    # -------------------------------------------------------------------
+    # 4) Standardize city names in the DataFrame
+    # -------------------------------------------------------------------
+    def standardize_city(city_str: str) -> str:
+        city_lower = city_str.strip().lower()
+        return sub_variant_map.get(city_lower, city_str)  # fallback to as-is if not found
+
+    df["city_standardized"] = df["city"].apply(standardize_city)
+
+    # -------------------------------------------------------------------
+    # 5) Determine the canonical form for the user’s input city
+    #     (so that we group by the same standardized name)
+    # -------------------------------------------------------------------
+    # Attempt to map the user-provided city to its canonical form
+    user_city_lower = user_city_input.lower()
+    if user_city_lower in sub_variant_map:
+        canonical_city = sub_variant_map[user_city_lower]  # e.g. "mexico city" for "mexico-city"
+    else:
+        # If the user typed a city we don’t have in the dictionary, we just use their exact name
+        # (which might not match any row if spelled incorrectly)
+        canonical_city = user_city_input
+
+    # -------------------------------------------------------------------
+    # 6) Filter the DataFrame: product == product_name, sales >= min_sales
+    # -------------------------------------------------------------------
+    filtered_df = df[(df["product"] == product_name) & (df["sales"] >= min_sales)]
+
+    # -------------------------------------------------------------------
+    # 7) Group by the standardized city name, sum the sales
+    # -------------------------------------------------------------------
+    sales_by_city = filtered_df.groupby("city_standardized")["sales"].sum().reset_index()
+
+    # -------------------------------------------------------------------
+    # 8) Get the sum of sales for the canonical city in question
+    # -------------------------------------------------------------------
+    city_total = sales_by_city.loc[sales_by_city["city_standardized"] == canonical_city, "sales"].sum()
+
+    # -------------------------------------------------------------------
+    # 9) Return the total as a string
+    # -------------------------------------------------------------------
+    return str(int(city_total))
+
+
+
 
 # GA5 Q6 - Calculate total sales from JSONL file
-@register_question(r".*download.*data.*q-parse-partial-json.jsonl.*(total sales value|total sales).*")
+@register_question(r".*total sales value.*")
 async def ga5_q6(question: str, file: UploadFile) -> str:
     file_content = await file.read()
     total_sales = 0

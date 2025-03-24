@@ -11,3 +11,6 @@ numpy
 pillow
 feedparser
 python-dateutil
+requests
+numpy
+beautifulsoup4
