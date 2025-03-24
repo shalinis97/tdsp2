@@ -611,25 +611,45 @@ async def ga5_q6(question: str, file: UploadFile) -> str:
 # GA5 Q7 - Count occurrences of "LGK" as a key in nested JSON
 
 #@register_question(r".*?(LGK).*?(appear|count|frequency).*?(key).*")
-@register_question(r".*(LGK).*(appear|count|frequency)?.*(key).*")
+@register_question(r".*appear as a key.*")
 
 async def ga5_q7(question: str, file: UploadFile) -> str:
+    """
+    Given a question string that contains a placeholder key (e.g., "How many times does LGK appear as a key?"),
+    and a file containing a JSON structure, return how many times that key appears as a key in the JSON.
+    """
+    # 1) Extract the target key from the question
+    #    Below is a simple pattern looking for text after "does " and before " appear as a key"
+    match = re.search(r"does\s+(.+?)\s+appear\s+as\s+a\s+key", question, re.IGNORECASE)
+    if match:
+        key_to_count = match.group(1)
+    else:
+        # Fallback if parsing fails; default to "LGK"
+        key_to_count = "LGK"
+
+    # 2) Read and parse the JSON file
     file_content = await file.read()
     data = json.loads(file_content.decode("utf-8"))
-    def count_key_occurrences(obj, key_to_count):
+
+    # 3) Define a helper function to do the recursive counting
+    def count_key_occurrences(obj, key_str):
         count = 0
         if isinstance(obj, dict):
-            for key, value in obj.items():
-                if key == key_to_count:
+            for k, v in obj.items():
+                if k == key_str:
                     count += 1
-                count += count_key_occurrences(value, key_to_count)
+                count += count_key_occurrences(v, key_str)
         elif isinstance(obj, list):
             for item in obj:
-                count += count_key_occurrences(item, key_to_count)
+                count += count_key_occurrences(item, key_str)
         return count
 
-    lgk_count = count_key_occurrences(data, "LGK")
-    return str(lgk_count)
+    # 4) Count how many times the extracted key appears
+    result_count = count_key_occurrences(data, key_to_count)
+
+    # 5) Return the result (as a string)
+    return str(result_count)
+
 
 
 @app.post("/api/", response_model=AnswerResponse)
