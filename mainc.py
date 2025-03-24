@@ -34,6 +34,7 @@ from urllib.parse import urlencode
 import tabula  # pip install tabula-py
 from PyPDF2 import PdfReader  # pip install PyPDF2
 import PyPDF2
+import httpie
 
 load_dotenv()
 
@@ -70,42 +71,50 @@ def register_question(pattern: str):
 # ga1 q1 - Output of 'code -s' without escape characters ✅
 @register_question(r".*output of code -s.*")
 async def ga1_q1(question: str) -> str:
-    response_data = {
-        "Version": "Code 1.97.2 (e54c774e0add60467559eb0d1e229c6452cf8447, 2025-02-12T23:20:35.343Z)",
-        "OS Version": "Windows_NT x64 10.0.26100",
-        "CPUs": "12th Gen Intel(R) Core(TM) i3-1215U (8 x 2496)",
-        "Memory (System)": "23.73GB (12.82GB free)",
-        "VM": "0%",
-        "Screen Reader": "no",
-        "Process Argv": "--crash-reporter-id 5e69de63-700b-45e0-8939-d706ef7d699d",
-        "GPU Status": {
-            "2d_canvas": "enabled",
-            "canvas_oop_rasterization": "enabled_on",
-            "gpu_compositing": "enabled",
-            "multiple_raster_threads": "enabled_on",
-            "opengl": "enabled_on",
-            "rasterization": "enabled",
-            "video_decode": "enabled",
-            "video_encode": "enabled",
-            "webgl": "enabled",
-            "webgl2": "enabled",
-            "webgpu": "enabled"
-        }
-    }
-    return json.dumps(response_data)
+    """
+    Returns the output of 'code -s' without any escape characters, 
+    exactly as a plain string (no JSON encoding).
+    """
+    # The sample 'code -s' output string:
+    output_str = (
+        "Version: Code 1.96.2 (fabdb6a30b49f79a7aba0f2ad9df9b399473380f, 2024-12-19T10:22:47.216Z)"
+        "OS Version: Windows_NT x64 10.0.19"
+    )
 
-# GA1 Q2 - Extract email and make HTTP request
-@register_question(r".*email set to.*")
+    # Return this raw string as-is (no JSON.dumps, so no escapes)
+    return output_str
+
+# GA1 Q2 - Extract email and make HTTP request to httpbin.org ✅
+
+@register_question(r".*Send a HTTPS request to.*with the URL encoded parameter email set to.*")
 async def ga1_q2(question: str) -> str:
     email_pattern = r"email set to ([\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,})"
     match = re.search(email_pattern, question)
     if match:
         email = match.group(1)
-        url = "https://httpbin.org/get"
-        command = ["http", "GET", url, f"email=={email}"]
-        result = subprocess.run(command, capture_output=True, text=True)
-        return result.stdout
-    return "{\"error\": \"Email not found in the input text\"}"
+
+        # Full shell command as a string
+        bash_command = f"http --print=b --pretty=none https://httpbin.org/get email=={email}"
+
+        try:
+            result = subprocess.run(
+                ["bash", "-c", bash_command],
+                capture_output=True,
+                text=True
+            )
+
+            # Attempt to parse and return the JSON response
+            response_json = json.loads(result.stdout)
+            return json.dumps(response_json, indent=2)
+
+        except json.JSONDecodeError:
+            return json.dumps({"error": "Failed to parse JSON", "raw_output": result.stdout})
+        except Exception as e:
+            return json.dumps({"error": str(e)})
+
+    return json.dumps({"error": "Email not found in the input text"})
+
+
 
 # GA1 Q3 - Use npx and prettier to format README.md and get sha256sum ✅
 
@@ -160,6 +169,59 @@ async def ga1_q8(question: str, file: UploadFile) -> str:
     df = pd.read_csv(csv_file_path)
     answer_value = df['answer'].iloc[0]
     return str(answer_value)
+
+
+#GA1 Q9 - sort the json based on name and age ✅
+
+@register_question(r".*Sort this JSON array of objects by the value of the age field. In case of a tie, sort by the name field.*")
+async def ga1_q9(question: str) -> str:
+    """
+    Example question snippet:
+      "Sort this JSON array of objects by the value of the age field. In case of a tie, sort by the name field.
+       [{\"name\":\"Alice\",\"age\":11},{\"name\":\"Bob\",\"age\":11}, ... ]"
+
+    Steps:
+      1) Extract JSON array from the question
+      2) Parse into Python
+      3) Sort by (age, name)
+      4) Return as single-line JSON (no spaces or newlines)
+    """
+
+    # 1) Extract the JSON array with a regex capturing '[' ... ']'
+    match = re.search(r"(\[.*\])", question, flags=re.DOTALL)
+    if not match:
+        return "No JSON array found in the question."
+
+    json_str = match.group(1).strip()
+
+    # 2) Parse into a Python list
+    try:
+        data = json.loads(json_str)
+    except json.JSONDecodeError:
+        return "Invalid JSON format in the question."
+
+    if not isinstance(data, list):
+        return "The extracted JSON is not an array."
+
+    # 3) Sort by 'age' ascending, then by 'name' ascending if there's a tie
+    #    We assume each object has keys 'name' and 'age'
+    def sort_key(item):
+        # If 'age' or 'name' is missing, handle gracefully
+        # Convert 'name' to string in case it's not
+        age_val = item.get("age", 0)  # fallback 0 or some default if missing
+        name_val = str(item.get("name", ""))
+        return (age_val, name_val)
+
+    data_sorted = sorted(data, key=sort_key)
+
+    # 4) Convert back to single-line JSON
+    # Use separators=(",", ":") to avoid extra spaces/newlines
+    result_json = json.dumps(data_sorted, separators=(",", ":"))
+
+    return result_json
+
+
+
 
 # GA1 Q14 - find and replace a string in a file
 

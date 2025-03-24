@@ -1,7 +1,6 @@
 # Ignore sensitive files
 .env
 *.pem
-rules_to execute.txt
 
 # Ignore unwanted directories
 __pycache__/
@@ -13,3 +12,6 @@ working_files/
 .qodo
 .DS_Store
 individual servers/
+rules_to execute.txt
+workbook.ipynb
+

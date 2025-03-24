@@ -17,3 +17,5 @@ beautifulsoup4
 tabula-py
 PyPDF2
 JPype1
+httpie
+
