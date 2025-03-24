@@ -35,6 +35,10 @@ import tabula  # pip install tabula-py
 from PyPDF2 import PdfReader  # pip install PyPDF2
 import PyPDF2
 import httpie
+from pathlib import Path
+import tempfile
+
+
 
 load_dotenv()
 
@@ -220,108 +224,167 @@ async def ga1_q9(question: str) -> str:
 
     return result_json
 
+#GA1 Q12 - Sum up all the values where the symbol matches ✅
 
+@register_question(r".*Sum up all the values where the symbol matches.*")
+async def ga1_q12(question: str, file: UploadFile) -> str:
+    """
+    Example question:
+      "Sum up all the values where the symbol matches Č OR ř OR ž across all three files."
 
+    Steps:
+      1) Extract the 3 symbols from question
+      2) Unzip the uploaded file
+      3) Read:
+         - data1.csv (CP-1252)
+         - data2.csv (UTF-8)
+         - data3.txt (UTF-16, tab sep)
+      4) Combine into a single DataFrame
+      5) Filter rows whose 'symbol' is in the 3 target symbols
+      6) Sum 'value' as an integer
+      7) Print matched symbols (for debug) and return total as a string
+    """
 
-# GA1 Q14 - find and replace a string in a file
+    # 1) Extract the 3 symbols from the question
+    match = re.search(r"Sum up all the values where the symbol matches (.*) OR (.*) OR (.*) across all three files", question)
+    if not match:
+        return "Question format invalid or no symbols found."
 
-@register_question(r".*replace all \"IITM\".*")
+    symbol1, symbol2, symbol3 = match.groups()
+    target_symbols = {symbol1, symbol2, symbol3}
+
+    # 2) Read the ZIP file from memory
+    zip_bytes = await file.read()
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as z:
+        # 3) Open each data file
+        with z.open("data1.csv") as f1:
+            df1 = pd.read_csv(f1, encoding="cp1252")
+        with z.open("data2.csv") as f2:
+            df2 = pd.read_csv(f2, encoding="utf-8")
+        with z.open("data3.txt") as f3:
+            df3 = pd.read_csv(f3, encoding="utf-16", sep="\t")
+
+    # 4) Combine all dataframes
+    all_data = pd.concat([df1, df2, df3], ignore_index=True)
+
+    # 5) Filter rows where 'symbol' is one of the target symbols
+    filtered_data = all_data[all_data["symbol"].isin(target_symbols)]
+
+    # (Optional) Let's debug which symbols matched
+    matched_symbols = filtered_data["symbol"].unique()
+    #print("Matched symbols (for debugging):", matched_symbols).  ---> uncomment to see matched symbols
+
+    # 6) Sum the 'value' column as an integer
+    # Convert the column to numeric and fill missing with 0 just in case
+    filtered_data["value"] = pd.to_numeric(filtered_data["value"], errors="coerce").fillna(0)
+    total_sum = int(filtered_data["value"].sum())
+
+    # 7) Return total as string
+    return str(total_sum)
+
+   
+#GA1 Q13 - Enter the raw Github URL of email.json so we can verify it. ✅
+#(It might look like https://raw.githubusercontent.com/[GITHUB ID]/[REPO NAME]/main/email.json.)
+
+@register_question(r".*Enter the raw Github URL of email.json so we can verify it.*")
+async def ga1_q12(question: str) -> str:
+    url ="https://raw.githubusercontent.com/shalinis97/TDS/refs/heads/main/email.json"
+    return url
+
+# GA1 Q14 - find and replace a string in a file ✅
+
+@register_question(r".*Leave everything as-is - don't change the line endings.*")
 async def ga1_q14(question: str, file: UploadFile) -> str:
     try:
-        # ✅ Step 1: Save and Extract ZIP
-        zip_path = f"/tmp/{file.filename}"
-        extract_folder = f"/tmp/extracted_{os.path.splitext(file.filename)[0]}"
-        os.makedirs(extract_folder, exist_ok=True)
-
+        # ✅ Step 1: Save the uploaded zip
+        zip_path = f"{file.filename}"
         with open(zip_path, "wb") as f:
             f.write(await file.read())
 
-        # Extract ZIP preserving file structure
+        # ✅ Step 2: Extract to normal folder `ga1_q14` (create if doesn't exist)
+        extract_folder = "ga1_q14"
+        print("Extracting to:", os.path.abspath(extract_folder))
+        print("Current working directory:", os.getcwd())
+
+
+        os.makedirs(extract_folder, exist_ok=True)
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(extract_folder)
 
-        # ✅ Step 2: Replace "IITM" (case insensitive) with "IIT Madras"
-        for file_path in Path(extract_folder).rglob("*"):
-            if file_path.is_file():
-                with open(file_path, "r", encoding="utf-8", newline='') as f:
-                    content = f.read()
+        # ✅ Step 3: Replace all "IITM" (any case) with "IIT Madras" in all files using bash sed
+        sed_cmd = "find . -type f -exec sed -i 's/[Ii][Ii][Tt][Mm]/IIT Madras/g' {} +"
+        subprocess.run(sed_cmd, shell=True, check=True, cwd=extract_folder)
 
-                updated_content = re.sub(r"(?i)\bIITM\b", "IIT Madras", content)
+        # ✅ Step 4: Get sha256sum from all file contents using `cat * | sha256sum`
+        sha_cmd = "cat * | sha256sum"
+        result = subprocess.run(sha_cmd, shell=True, capture_output=True, text=True, cwd=extract_folder)
 
-                with open(file_path, "w", encoding="utf-8", newline='') as f:
-                    f.write(updated_content)
+        if not result.stdout:
+            return "Error: No output from sha256sum"
 
-        # ✅ Step 3: Compute SHA-256 hash using `cat * | sha256sum`
-        result = subprocess.run(
-            "cat * | sha256sum",
-            shell=True,
-            cwd=extract_folder,
-            capture_output=True,
-            text=True
-        )
-
-        # Extract and return the SHA-256 hash
-        return result.stdout.split()[0] if result.stdout else "Error: No output"
+        return result.stdout.split()[0]
 
     except Exception as e:
         return f"Error: {str(e)}"
 
+
+
 # GA1 Q15 - filter files based on size and timestamp
-@register_question(r".*ls with options to list all files.*")
+import re
+import os
+import subprocess
+from datetime import datetime
+from fastapi import UploadFile
+from pathlib import Path
+
+@register_question(r".*Use ls with options to list all files in the folder along with their date and file size.*")
 async def ga1_q15(question: str, file: UploadFile) -> str:
     try:
-        # ✅ Step 1: Extract size and date conditions from the question using regex
+        # ✅ Extract parameters from the question
         size_match = re.search(r"at least (\d+) bytes", question)
-        date_match = re.search(r"on or after ([\w, ]+ \d{4}, \d+:\d+ [apAP][mM] IST)", question)
+        date_match = re.search(r"on or after ([\w, ]+\d{4}, \d+:\d+ [apAP][mM] IST)", question)
 
         if not size_match or not date_match:
             return "Error: Could not extract size or date from the question."
 
-        min_size = int(size_match.group(1))  # Extracted minimum file size
-        date_str = date_match.group(1)  # Extracted modification date string
+        min_size = int(size_match.group(1))
+        print("Minimum size:", min_size)
+        date_str = date_match.group(1)
+        print("Date string:", date_str)
 
-        # ✅ Convert extracted date string to a datetime object
-        target_date = datetime.strptime(date_str, "%a, %d %b, %Y, %I:%M %p IST")
+        # ✅ Convert 12-hour IST datetime to 24-hour string
+        dt = datetime.strptime(date_str, "%a, %d %b, %Y, %I:%M %p IST")
+        date_for_find = dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        # ✅ Step 2: Save and Extract ZIP file
-        zip_path = f"/tmp/{file.filename}"
-        extract_folder = f"/tmp/extracted_{os.path.splitext(file.filename)[0]}"
-
+        # ✅ Save and extract the zip file
+        zip_path = f"{file.filename}"
         with open(zip_path, "wb") as f:
             f.write(await file.read())
 
-        # Extract using `unzip` to preserve timestamps
-        subprocess.run(["unzip", zip_path, "-d", extract_folder], check=True)
+        extract_folder = f"ga1_q15_extracted"
+        os.makedirs(extract_folder, exist_ok=True)
 
-        # ✅ Step 3: Run `ls -l --time-style=full-iso` to list files with size & timestamp
-        result = subprocess.run(
-            ["ls", "-l", "--time-style=full-iso", extract_folder],
-            capture_output=True,
-            text=True
+        subprocess.run(f"unzip -q '{zip_path}' -d '{extract_folder}'", shell=True, check=True)
+
+        # ✅ Use bash to find and sum sizes of matching files
+        find_command = (
+            f'find . -type f -size +{min_size}c -newermt "{date_for_find}" '
+            f'-exec du -b {{}} + | awk \'{{sum += $1}} END {{print sum}}\''
         )
 
-        # ✅ Step 4: Process the output using regex
-        lines = result.stdout.strip().split("\n")[1:]  # Skip the first line (total)
-        total_size = 0
+        result = subprocess.run(
+            find_command,
+            shell=True,
+            text=True,
+            capture_output=True,
+            cwd=extract_folder
+        )
 
-        for line in lines:
-            match = re.search(r"(\S+) +\S+ +\S+ +\S+ +(\d+) (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
-
-            if match:
-                size = int(match.group(2))  # Extracted file size
-                mod_time_str = match.group(3)  # Extracted modification time
-
-                mod_time = datetime.strptime(mod_time_str, "%Y-%m-%d %H:%M:%S")  # Convert to datetime
-
-                # ✅ Step 5: Check conditions and sum file sizes
-                if size >= min_size and mod_time >= target_date:
-                    total_size += size
-
-        return str(total_size)
+        output = result.stdout.strip()
+        return output if output else "0"
 
     except Exception as e:
         return f"Error: {str(e)}"
-
 
 
 #GA1 Q16 - Calculate the sum of all numbers in a text file   -- ✅ 
@@ -450,7 +513,7 @@ plt.ylabel("Steps")
 plt.show()
 ```
 """
-    return markdown_content.replace("\n", "")
+    return markdown_content #return markdown_content.replace("\n", "")
 
 # GA2 Q5 - Calculate number of light pixels in an image ✅
 @register_question(r".*Create a new Google Colab notebook and run this code \(after fixing a mistake in it\) to calculate the number of pixels with a certain minimum brightness.*")
