@@ -319,6 +319,73 @@ async def ga1_q17(question: str, file: UploadFile) -> str:
 
 #-------- GA2 questions---------
 
+# GA2 Q1 - Write Markdown documentation for weekly step count analysis
+@register_question(r".*number of steps.*")
+async def ga2_q1(question: str) -> str:
+    markdown_content = """# Weekly Step Count Analysis
+![Image](https://www.10000steps.org.au/media/images/Counting-Your-Steps-Blog.original.png)
+
+## Introduction
+Tracking the number of steps walked daily is an **important** measure of physical activity and helps in maintaining a healthy lifestyle. This analysis compares my step count with my friends over the past week to observe trends and patterns.
+
+---
+
+## Methodology
+To conduct this analysis, the following steps were followed:
+
+1. *Data Collection:* Step count data was recorded using fitness trackers.
+2. *Comparison:* The data was compared across individuals to identify trends.
+3. *Visualization:* The results were displayed using tables and charts.
+
+---
+
+## Step Count Comparison
+
+Below is a table showing the step count for three individuals over three days:
+
+| Name       | Monday       | Tuesday      | Wednesday    |
+|------------|-------------|--------------|--------------|
+| **Shalini** | *1090 steps* | *1000 steps*  | *1000 steps*  |
+| **Raajashri** | *10000 steps* | *1940 steps*  | *1890 steps*  |
+| **Finn**    | *19000 steps* | *18000 steps* | *1000 steps*  |
+
+---
+
+### Important Observations
+
+- Shalini is **27 years old**, maintaining a consistent but low step count.
+- Raajashri is **23 years old**, showing a high fluctuation in daily steps.
+- Finn is an **8-year-old dog**, with an impressive step count.
+
+---
+
+## Insights
+
+> "Taking at least 10,000 steps a day can significantly improve health outcomes."
+
+For more information on the importance of daily steps, check out this [NIH article](https://www.nih.gov/news-events/nih-research-matters/number-steps-day-more-important-step-intensity#:~:text=People%20who%20took%2012%2C000%20steps,%2C%20sex%2C%20and%20race%20groups).
+
+---
+
+## Step Count Visualization
+
+Below is a Python snippet used to visualize the step count data:
+
+```python
+import matplotlib.pyplot as plt
+
+names = ["Shalini", "Raajashri", "Finn"]
+steps = [1090, 10000, 19000]
+
+plt.bar(names, steps)
+plt.title("Step Count Comparison")
+plt.xlabel("Individuals")
+plt.ylabel("Steps")
+plt.show()
+```
+"""
+    return markdown_content.replace("\n", "")
+
 # GA2 Q5 - Calculate number of light pixels in an image ✅
 @register_question(r".*Create a new Google Colab notebook and run this code \(after fixing a mistake in it\) to calculate the number of pixels with a certain minimum brightness.*")
 async def ga2_q5(file: UploadFile) -> str:
