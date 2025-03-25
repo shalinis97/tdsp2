@@ -37,6 +37,8 @@ import PyPDF2
 import httpie
 from pathlib import Path
 import tempfile
+import hashlib
+from collections import OrderedDict
 
 
 
@@ -145,6 +147,87 @@ async def ga1_q3(question: str, file: UploadFile) -> str:
     except Exception as e:
         return f"Error: {str(e)}"
 
+#GA1 Q4 - Sum(array_constrain(sequence())) using google sheets ✅
+@register_question(r".*=SUM\(ARRAY_CONSTRAIN\(SEQUENCE.*")
+async def ga1_q4(question: str) -> str:
+    match = re.search(
+        r"=SUM\(ARRAY_CONSTRAIN\(SEQUENCE\((\d+), (\d+), (\d+), (\d+)\), (\d+), (\d+)\)\)",
+        question
+    )
+    if not match:
+        return "Invalid question format"
+
+    rows, cols, start, step, constrain_rows, constrain_cols = map(int, match.groups())
+
+    # Generate the full SEQUENCE grid row-wise
+    sequence = []
+    for r in range(rows):
+        row_data = [start + step * (r * cols + c) for c in range(cols)]
+        sequence.append(row_data)
+
+    # Apply ARRAY_CONSTRAIN
+    constrained_sequence = [row[:constrain_cols] for row in sequence[:constrain_rows]]
+
+    # Flatten and sum
+    total_sum = sum(num for row in constrained_sequence for num in row)
+
+    return str(total_sum)
+
+#GA1 Q5 - SUM(TAKE(SORTY() using EXCEL)) ✅
+
+@register_question(r".*=SUM\(TAKE\(SORTBY\({.*")
+async def ga1_q5(question: str) -> str:
+    """
+    Handles Excel 365-specific formula-based questions:
+    =SUM(TAKE(SORTBY({values}, {keys}), rows, cols))
+
+    Steps:
+    - Extract values, sort keys, rows and columns from the formula
+    - Sort values based on keys
+    - Slice the top [rows x cols] elements row-wise
+    - Sum and return resultß
+    """
+
+    try:
+        # Remove all line breaks and whitespace for regex processing
+        cleaned_question = question.replace("\n", "").replace(" ", "")
+
+        # Regex to extract all components from the formula
+        match = re.search(
+            r"=SUM\(TAKE\(SORTBY\(\{([0-9,]+)\},\{([0-9,]+)\}\),(\d+),(\d+)\)\)",
+            cleaned_question
+        )
+
+        if not match:
+            return "Invalid question format."
+
+        values_str, keys_str, rows_str, cols_str = match.groups()
+
+        # Convert to appropriate data types
+        values = list(map(int, values_str.split(",")))
+        keys = list(map(int, keys_str.split(",")))
+        rows = int(rows_str)
+        cols = int(cols_str)
+
+        # Validate lengths
+        if len(values) != len(keys):
+            return "Mismatched values and keys."
+
+        # Sort values based on keys
+        sorted_values = [val for _, val in sorted(zip(keys, values))]
+
+        # Calculate the number of elements to take (rows x cols)
+        total_to_take = rows * cols
+
+        # Take first (rows * cols) elements from sorted list
+        top_values = sorted_values[:total_to_take]
+
+        # Return their sum
+        return str(sum(top_values))
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
 
 # GA1 Q7 - Count the number of Wednesdays in a given date range ✅
 @register_question(r".*How many Wednesdays are there in the date range.*")
@@ -192,7 +275,7 @@ async def ga1_q9(question: str) -> str:
     """
 
     # 1) Extract the JSON array with a regex capturing '[' ... ']'
-    match = re.search(r"(\[.*\])", question, flags=re.DOTALL)
+    match = re.search(r"(\[.*])", question, flags=re.DOTALL)
     if not match:
         return "No JSON array found in the question."
 
@@ -223,6 +306,38 @@ async def ga1_q9(question: str) -> str:
     result_json = json.dumps(data_sorted, separators=(",", ":"))
 
     return result_json
+
+#GA1 Q10 - CONVERT INTO A SINGLE JSON OBJECT AND FETCH JSONHASH FROM URL
+@register_question(r".*convert it into a single JSON object.*jsonhash.*")
+async def ga1_q10(question: str, file: UploadFile) -> str:
+
+    try:
+        # Step 1: Read uploaded text file
+        content = (await file.read()).decode("utf-8").strip().splitlines()
+
+        # Step 2: Build OrderedDict to preserve input order
+        data = OrderedDict()
+        for line in content:
+            if "=" in line:
+                key, value = line.split("=", 1)
+                data[key.strip()] = value.strip()
+
+        # Step 3: Dump to minified JSON string without sorting keys
+        minified_json = json.dumps(data, separators=(",", ":"))  # No sort_keys=True
+
+        # ✅ Print the ordered minified JSON
+        #print("Minified JSON in order:\n", minified_json)
+
+        # Step 4: Hash it like the browser tool
+        hash_val = hashlib.sha256(minified_json.encode("utf-8")).hexdigest()
+
+        return hash_val
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+
 
 #GA1 Q12 - Sum up all the values where the symbol matches ✅
 
@@ -293,7 +408,14 @@ async def ga1_q12(question: str) -> str:
 
 # GA1 Q14 - find and replace a string in a file ✅
 
-@register_question(r".*Leave everything as-is - don't change the line endings.*")
+#@register_question(r".*Download.*and unzip it into a new folder, then replace all \"IITM\" (in upper, lower, or mixed case) with \"IIT Madras\" in all files. Leave everything as-is - don't change the line endings.*What does running cat \* \| sha256sum in that folder show in bash.*")
+#@register_question(r".*Download.*replace all\s+\"?IITM\"?.*with\s+\"?IIT Madras\"?.*in all files.*cat\s+\*\s+\|\s+sha256sum.*bash.*")
+#@register_question(r".*Leave everything as-is - don't change the line endings.*does running cat * | sha256sum in that folder show in bash?.*")
+#@register_question(r".*IIT Madras.*")
+#@register_question(r".*replace all.*IITM.*with.*IIT Madras.*sha256sum.*")
+#@register_question(r".*unzip.*replace all.*IITM.*with.*IIT Madras.*line endings.*cat \* \| sha256sum.*")
+@register_question(r"Leave everything as-is - don't change the line endings.*")
+
 async def ga1_q14(question: str, file: UploadFile) -> str:
     try:
         # ✅ Step 1: Save the uploaded zip
@@ -312,7 +434,7 @@ async def ga1_q14(question: str, file: UploadFile) -> str:
             zip_ref.extractall(extract_folder)
 
         # ✅ Step 3: Replace all "IITM" (any case) with "IIT Madras" in all files using bash sed
-        sed_cmd = "find . -type f -exec sed -i 's/[Ii][Ii][Tt][Mm]/IIT Madras/g' {} +"
+        sed_cmd = "find . -type f -exec sed -i '' 's/[Ii][Ii][Tt][Mm]/IIT Madras/g' {} +"
         subprocess.run(sed_cmd, shell=True, check=True, cwd=extract_folder)
 
         # ✅ Step 4: Get sha256sum from all file contents using `cat * | sha256sum`

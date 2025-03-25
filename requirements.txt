@@ -8,7 +8,7 @@ httpx
 aiofiles
 python-multipart
 numpy
-pillow
+Pillow
 feedparser
 python-dateutil
 requests
@@ -18,4 +18,5 @@ tabula-py
 PyPDF2
 JPype1
 httpie
+openjdk
 
