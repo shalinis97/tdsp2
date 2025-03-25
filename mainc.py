@@ -328,7 +328,15 @@ async def ga1_q10(question: str, file: UploadFile) -> str:
         # ✅ Print the ordered minified JSON
         #print("Minified JSON in order:\n", minified_json)
 
-        # Step 4: Hash it like the browser tool
+        # Step 4: Hash it like the browser tool - this hash is same for same exact input.used to verify data integrity.
+        """
+        This line does three things: Converts the JSON string into bytes using UTF-8:
+        minified_json.encode("utf-8") --> Computers work with bytes, not strings—so we first encode the string.
+        Creates a SHA-256 hash of those bytes:  --> hashlib.sha256(...).hexdigest() 
+        SHA-256 is a way to create a unique digital fingerprint (a 64-character hexadecimal string) for the input.
+        Returns the hash as a readable hex string using .hexdigest()
+        """
+
         hash_val = hashlib.sha256(minified_json.encode("utf-8")).hexdigest()
 
         return hash_val
@@ -414,7 +422,10 @@ async def ga1_q12(question: str) -> str:
 #@register_question(r".*IIT Madras.*")
 #@register_question(r".*replace all.*IITM.*with.*IIT Madras.*sha256sum.*")
 #@register_question(r".*unzip.*replace all.*IITM.*with.*IIT Madras.*line endings.*cat \* \| sha256sum.*")
-@register_question(r"Leave everything as-is - don't change the line endings.*")
+#@register_question(r".*Leave everything as-is - don't change the line endings.*")
+#@register_question(r".*replace all [\"']?IITM[\"']? \(in upper, lower, or mixed case\) with [\"']?IIT Madras[\"']? in all files\. Leave everything as-is - don't change the line endings.*")
+@register_question(r".*leave\s+everything\s+as[\s\-]*is\s*[-–—]?\s*don'?t\s+change\s+the\s+line\s+endings.*", flags=re.IGNORECASE)
+
 
 async def ga1_q14(question: str, file: UploadFile) -> str:
     try:
