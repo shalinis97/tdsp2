@@ -669,6 +669,8 @@ plt.show()
 """
     return markdown_content #return markdown_content.replace("\n", "")
 
+
+#GA2 Q4 - google collab 
 @register_question(r".Let's make sure you can access Google Colab.")
 async def ga2_q4(question: str) -> str:
     print(f"🔥 Called ga2_q4: {question}")
