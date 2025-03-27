@@ -77,6 +77,7 @@ def register_question(pattern: str):
 # ga1 q1 - Output of 'code -s' without escape characters ✅
 @register_question(r".*output of code -s.*")
 async def ga1_q1(question: str) -> str:
+    print(f"🔥 Called ga1_q1: {question}")
     """
     Returns the output of 'code -s' without any escape characters, 
     exactly as a plain string (no JSON encoding).
@@ -94,6 +95,7 @@ async def ga1_q1(question: str) -> str:
 
 @register_question(r".*Send a HTTPS request to.*with the URL encoded parameter email set to.*")
 async def ga1_q2(question: str) -> str:
+    print(f"🔥 Called ga1_q2: {question}")
     email_pattern = r"email set to ([\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,})"
     match = re.search(email_pattern, question)
     if match:
@@ -124,8 +126,10 @@ async def ga1_q2(question: str) -> str:
 
 # GA1 Q3 - Use npx and prettier to format README.md and get sha256sum ✅
 
-@register_question(r".*npx -y prettier@3.4.2 README.md | sha256sum.*")
+@register_question(r".*npx -y prettier@3.4.2 README.md.*")
+
 async def ga1_q3(question: str, file: UploadFile) -> str:
+    print(f"🔥 Called ga1_q3: {question}")
     try:
         # Step 1: Save the uploaded file as README.md in a temp directory
         file_path = f"/tmp/README.md"
@@ -150,6 +154,7 @@ async def ga1_q3(question: str, file: UploadFile) -> str:
 #GA1 Q4 - Sum(array_constrain(sequence())) using google sheets ✅
 @register_question(r".*=SUM\(ARRAY_CONSTRAIN\(SEQUENCE.*")
 async def ga1_q4(question: str) -> str:
+    print(f"🔥 Called ga1_q4: {question}")
     match = re.search(
         r"=SUM\(ARRAY_CONSTRAIN\(SEQUENCE\((\d+), (\d+), (\d+), (\d+)\), (\d+), (\d+)\)\)",
         question
@@ -177,6 +182,7 @@ async def ga1_q4(question: str) -> str:
 
 @register_question(r".*=SUM\(TAKE\(SORTBY\({.*")
 async def ga1_q5(question: str) -> str:
+    print(f"🔥 Called ga1_q5: {question}")
     """
     Handles Excel 365-specific formula-based questions:
     =SUM(TAKE(SORTBY({values}, {keys}), rows, cols))
@@ -232,6 +238,7 @@ async def ga1_q5(question: str) -> str:
 # GA1 Q7 - Count the number of Wednesdays in a given date range ✅
 @register_question(r".*How many Wednesdays are there in the date range.*")
 async def ga1_q7(question: str) -> str:
+    print(f"🔥 Called ga1_q7: {question}")
     match = re.search(r".*How many Wednesdays are there in the date range (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2}).*", question)
     if not match:
         return "Invalid question format"
@@ -249,6 +256,7 @@ async def ga1_q7(question: str) -> str:
 # GA1 Q8 - Import file to get answer from CSV ✅
 @register_question(r".*Download and unzip file .* which has a single extract.csv file inside.*")
 async def ga1_q8(question: str, file: UploadFile) -> str:
+    print(f"🔥 Called ga1_q8: {question}")
     file_content = await file.read()
     with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
         zip_ref.extractall('extracted_files')
@@ -262,6 +270,7 @@ async def ga1_q8(question: str, file: UploadFile) -> str:
 
 @register_question(r".*Sort this JSON array of objects by the value of the age field. In case of a tie, sort by the name field.*")
 async def ga1_q9(question: str) -> str:
+    print(f"🔥 Called ga1_q9: {question}")
     """
     Example question snippet:
       "Sort this JSON array of objects by the value of the age field. In case of a tie, sort by the name field.
@@ -310,6 +319,7 @@ async def ga1_q9(question: str) -> str:
 #GA1 Q10 - CONVERT INTO A SINGLE JSON OBJECT AND FETCH JSONHASH FROM URL
 @register_question(r".*convert it into a single JSON object.*jsonhash.*")
 async def ga1_q10(question: str, file: UploadFile) -> str:
+    print(f"🔥 Called ga1_q10: {question}")
 
     try:
         # Step 1: Read uploaded text file
@@ -351,6 +361,7 @@ async def ga1_q10(question: str, file: UploadFile) -> str:
 
 @register_question(r".*Sum up all the values where the symbol matches.*")
 async def ga1_q12(question: str, file: UploadFile) -> str:
+    print(f"🔥 Called ga1_q12: {question}")
     """
     Example question:
       "Sum up all the values where the symbol matches Č OR ř OR ž across all three files."
@@ -410,7 +421,8 @@ async def ga1_q12(question: str, file: UploadFile) -> str:
 #(It might look like https://raw.githubusercontent.com/[GITHUB ID]/[REPO NAME]/main/email.json.)
 
 @register_question(r".*Enter the raw Github URL of email.json so we can verify it.*")
-async def ga1_q12(question: str) -> str:
+async def ga1_q13(question: str) -> str:
+    print(f"🔥 Called ga1_q13: {question}")
     url ="https://raw.githubusercontent.com/shalinis97/TDS/refs/heads/main/email.json"
     return url
 
@@ -424,10 +436,10 @@ async def ga1_q12(question: str) -> str:
 #@register_question(r".*unzip.*replace all.*IITM.*with.*IIT Madras.*line endings.*cat \* \| sha256sum.*")
 #@register_question(r".*Leave everything as-is - don't change the line endings.*")
 #@register_question(r".*replace all [\"']?IITM[\"']? \(in upper, lower, or mixed case\) with [\"']?IIT Madras[\"']? in all files\. Leave everything as-is - don't change the line endings.*")
-@register_question(r".*leave\s+everything\s+as[\s\-]*is\s*[-–—]?\s*don'?t\s+change\s+the\s+line\s+endings.*", flags=re.IGNORECASE)
-
-
+@register_question(r".*Leave\s+everything\s+as[\s\-]*is\s*[-–—]?\s*don'?t\s+change\s+the\s+line\s+endings\..*")
 async def ga1_q14(question: str, file: UploadFile) -> str:
+    print("✅ ga1_q14 matched and is executing.")
+
     try:
         # ✅ Step 1: Save the uploaded zip
         zip_path = f"{file.filename}"
@@ -438,7 +450,6 @@ async def ga1_q14(question: str, file: UploadFile) -> str:
         extract_folder = "ga1_q14"
         print("Extracting to:", os.path.abspath(extract_folder))
         print("Current working directory:", os.getcwd())
-
 
         os.makedirs(extract_folder, exist_ok=True)
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -462,6 +473,7 @@ async def ga1_q14(question: str, file: UploadFile) -> str:
 
 
 
+
 # GA1 Q15 - filter files based on size and timestamp
 import re
 import os
@@ -472,6 +484,7 @@ from pathlib import Path
 
 @register_question(r".*Use ls with options to list all files in the folder along with their date and file size.*")
 async def ga1_q15(question: str, file: UploadFile) -> str:
+    print(f"🔥 Called ga1_q15: {question}")
     try:
         # ✅ Extract parameters from the question
         size_match = re.search(r"at least (\d+) bytes", question)
@@ -523,6 +536,7 @@ async def ga1_q15(question: str, file: UploadFile) -> str:
 #GA1 Q16 - Calculate the sum of all numbers in a text file   -- ✅ 
 @register_question(r".*grep . * | LC_ALL=C sort | sha256sum.*")
 async def ga1_q16(question: str, file: UploadFile) -> str:
+    print(f"🔥 Called ga1_q16: {question}")
     try:
         # Step 1: Save the uploaded ZIP file
         zip_path = f"/tmp/{file.filename}"  # Temporary path for extraction
@@ -569,6 +583,7 @@ async def ga1_q16(question: str, file: UploadFile) -> str:
 # GA1 Q17 - Count the number of different lines between two files ✅
 @register_question(r".*Download .* and extract it. It has 2 nearly identical files, a.txt and b.txt, with the same number of lines. How many lines are different between a.txt and b.txt?.*")
 async def ga1_q17(question: str, file: UploadFile) -> str:
+    print(f"🔥 Called ga1_q17: {question}")
     file_content = await file.read()
     with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
         zip_ref.extractall('extracted_files')
@@ -579,6 +594,12 @@ async def ga1_q17(question: str, file: UploadFile) -> str:
     return str(different_lines_count)
 
 
+#GA1 Q18 - sql query
+@register_question(r".*What is the total sales of all the items in the \"Gold\" ticket type\? Write SQL to calculate it.*")
+async def ga1_q18(question:str) -> str:
+    print(f"🔥 Called ga1_q18: {question}")
+    sql_query = "SELECT SUM(units * price) AS sales FROM tickets WHERE trim(lower(type)) = 'gold';"
+    return sql_query
 #-------- GA2 questions---------
 
 # GA2 Q1 - Write Markdown documentation for weekly step count analysis
@@ -648,15 +669,44 @@ plt.show()
 """
     return markdown_content #return markdown_content.replace("\n", "")
 
+@register_question(r".Let's make sure you can access Google Colab.")
+async def ga2_q4(question: str) -> str:
+    print(f"🔥 Called ga2_q4: {question}")
+
+    match = re.search(r"ID:\s*([\w\.-]+@[\w\.-]+)", question)
+    if not match:
+        return "Error: Could not extract email from question"
+
+    email = match.group(1).rstrip('.')
+    year = 2025  # fixed to match Colab
+    i1 = f"{email} {year}".encode()
+    print(email)
+    print(year)
+    print(i1)
+
+    hash_val = hashlib.sha256(i1).hexdigest()[-5:]
+    hash_full= hashlib.sha256(i1).hexdigest()
+    print(hash_val)
+    print(hash_full)
+    return hash_val
+
 # GA2 Q5 - Calculate number of light pixels in an image ✅
 @register_question(r".*Create a new Google Colab notebook and run this code \(after fixing a mistake in it\) to calculate the number of pixels with a certain minimum brightness.*")
-async def ga2_q5(file: UploadFile) -> str:
+async def ga2_q5(question:str, file: UploadFile) -> str:
     file_content = await file.read()
     image = Image.open(io.BytesIO(file_content))
     rgb = np.array(image) / 255.0
     lightness = np.apply_along_axis(lambda x: colorsys.rgb_to_hls(*x)[1], 2, rgb)
     light_pixels = np.sum(lightness > 0.133)
     return str(int(light_pixels))
+
+#GA2 Q10 - running llamafile through ngrok
+@register_question(r".*Create a tunnel to the Llamafile server using ngrok.*")
+async def ga2_q10(question: str) -> str:
+    print(f"🔥 Called ga2_q10: {question}")
+    url = "https://2350-2409-4072-6e45-1953-c9d6-9624-b787-cecb.ngrok-free.app/"
+    return url
+
 
 
 
@@ -766,6 +816,15 @@ async def ga4_q1(question: str) -> str:
     # 7) Return the total as a string
     return str(total_ducks)
 
+
+#GA4 Q3 -  public api endpoint url that gives a json response of headers alone taking 
+#countryname as input in the url (request is passed accordingly). Takes data from wikipedia.
+
+@register_question(r".*Wikipedia.*")
+async def ga4_q3(question: str) -> str:
+    print(f"🔥 Called ga4_q3: {question}")
+    url ="https://e00b-2409-4072-6e45-1953-c9d6-9624-b787-cecb.ngrok-free.app/api/outline"
+    return url
 
 #GA4 Q4 - Json weather description for a city ✅
 @register_question(r".*What is the JSON weather forecast description for.*")
