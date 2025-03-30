@@ -546,7 +546,7 @@ async def ga1_q14(question: str, file: UploadFile) -> str:
             zip_ref.extractall(extract_folder)
 
         # ✅ Step 3: Replace all "IITM" (any case) with "IIT Madras" in all files using bash sed
-        sed_cmd = "find . -type f -exec sed -i '' 's/[Ii][Ii][Tt][Mm]/IIT Madras/g' {} +"
+        sed_cmd = "find . -type f -exec sed -i 's/[Ii][Ii][Tt][Mm]/IIT Madras/g' {} +"
         subprocess.run(sed_cmd, shell=True, check=True, cwd=extract_folder)
 
         # ✅ Step 4: Get sha256sum from all file contents using `cat * | sha256sum`
