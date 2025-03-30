@@ -21,7 +21,6 @@ import json
 import re
 import warnings
 warnings.filterwarnings("ignore")
-import io
 import xml.etree.ElementTree as ET
 from dateutil import parser
 import subprocess
@@ -39,6 +38,7 @@ from pathlib import Path
 import tempfile
 import hashlib
 from collections import OrderedDict
+import pytz
 
 
 
@@ -235,6 +235,53 @@ async def ga1_q5(question: str) -> str:
         return f"Error: {str(e)}"
 
 
+#GA1 Q6 - hidden element --> should we hardcode the answer?
+
+@register_question(r".*Just above this paragraph, there's a hidden input with a secret value.*")
+async def ga1_q6(question: str, file: UploadFile = None) -> str:
+    """
+    GA1 Q6: Extract the value of the hidden input just above the paragraph in the HTML.
+
+    - If a URL is present in the question, it fetches the HTML from that URL.
+    - If a file is uploaded, it parses the file content as HTML.
+    - If neither is available, it parses the question text as HTML.
+    """
+    print(f"🔍 Called ga1_q6: {question}")
+    import re
+    import requests
+    from bs4 import BeautifulSoup
+
+    html_data = None
+
+    try:
+        # Step 1: Check for URL in the question
+        url_match = re.search(r"https?://[^\s]+", question)
+        if url_match:
+            source = url_match.group(0)
+            response = requests.get(source, timeout=5)
+            response.raise_for_status()
+            html_data = response.text
+
+        # Step 2: If file is provided, read it
+        elif file:
+            file_content = await file.read()
+            html_data = file_content.decode("utf-8")
+
+        # Step 3: Else fallback to parsing the question as HTML
+        else:
+            soup = BeautifulSoup(question, "html.parser")
+            div_text = soup.find("div")
+            return div_text.get_text(strip=True) if div_text else ""
+
+        # Step 4: Extract hidden input value
+        soup = BeautifulSoup(html_data, "html.parser")
+        hidden_input = soup.find("input", {"type": "hidden"})
+        return hidden_input.get("value", "") if hidden_input else ""
+
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
+
+
 # GA1 Q7 - Count the number of Wednesdays in a given date range ✅
 @register_question(r".*How many Wednesdays are there in the date range.*")
 async def ga1_q7(question: str) -> str:
@@ -356,6 +403,49 @@ async def ga1_q10(question: str, file: UploadFile) -> str:
 
 
 
+#GA1 Q11 - SUM OF DATA VALUE ATTRIBUTE
+@register_question(r".*Find all <div>s having a foo class.*sum of their data-value attributes.*")
+async def ga1_q11(question: str, file: UploadFile = None) -> str:
+    """
+    GA1 Q11: Find all <div class="foo"> elements and sum their data-value attributes.
+    The HTML can come from inline question, an uploaded file, or an external URL.
+    """
+    print(f"🔎 Called ga1_q11: {question}")
+    import re
+    from bs4 import BeautifulSoup
+    import requests
+
+    html_data = None
+
+    try:
+        # Step 1: Check for URL in the question
+        url_match = re.search(r"https?://[^\s]+", question)
+        if url_match:
+            response = requests.get(url_match.group(0), timeout=5)
+            response.raise_for_status()
+            html_data = response.text
+
+        # Step 2: If a file is uploaded
+        elif file:
+            file_content = await file.read()
+            html_data = file_content.decode("utf-8")
+
+        # Step 3: Else fallback to question text (may contain HTML)
+        else:
+            html_data = question
+
+        # Step 4: Parse the HTML
+        soup = BeautifulSoup(html_data, "html.parser")
+
+        # Step 5: Select divs with class 'foo' and data-value attribute
+        divs = soup.select('div.foo[data-value]')
+        values = [float(div['data-value']) for div in divs]
+
+        # Step 6: Return the sum as integer
+        return str(int(sum(values)))
+
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
 
 #GA1 Q12 - Sum up all the values where the symbol matches ✅
 
@@ -475,62 +565,49 @@ async def ga1_q14(question: str, file: UploadFile) -> str:
 
 
 # GA1 Q15 - filter files based on size and timestamp
-import re
-import os
-import subprocess
-from datetime import datetime
-from fastapi import UploadFile
-from pathlib import Path
-
 @register_question(r".*Use ls with options to list all files in the folder along with their date and file size.*")
-async def ga1_q15(question: str, file: UploadFile) -> str:
+async def ga1_q15(question: str, zip_file: UploadFile) -> str:
+
     print(f"🔥 Called ga1_q15: {question}")
+
     try:
-        # ✅ Extract parameters from the question
+        # ✅ Extract minimum size from question
         size_match = re.search(r"at least (\d+) bytes", question)
-        date_match = re.search(r"on or after ([\w, ]+\d{4}, \d+:\d+ [apAP][mM] IST)", question)
-
-        if not size_match or not date_match:
-            return "Error: Could not extract size or date from the question."
-
+        if not size_match:
+            return "Error: Could not extract file size from question."
         min_size = int(size_match.group(1))
-        print("Minimum size:", min_size)
-        date_str = date_match.group(1)
-        print("Date string:", date_str)
 
-        # ✅ Convert 12-hour IST datetime to 24-hour string
-        dt = datetime.strptime(date_str, "%a, %d %b, %Y, %I:%M %p IST")
-        date_for_find = dt.strftime("%Y-%m-%d %H:%M:%S")
+        # ✅ Extract timestamp string and convert to datetime
+        date_match = re.search(r"on or after ([\w, ]+\d{4}, \d+:\d+ [apAP][mM]) IST", question)
+        if not date_match:
+            return "Error: Could not extract timestamp from question."
+        
+        date_str = date_match.group(1).strip()
+        try:
+            target_dt = datetime.strptime(date_str, "%a, %d %b, %Y, %I:%M %p")
+            target_dt = pytz.timezone("Asia/Kolkata").localize(target_dt)
+        except ValueError as e:
+            return f"Date parsing error: {str(e)}"
 
-        # ✅ Save and extract the zip file
-        zip_path = f"{file.filename}"
-        with open(zip_path, "wb") as f:
-            f.write(await file.read())
+        # ✅ Read the uploaded zip file in memory
+        zip_bytes = await zip_file.read()
+        total_size = 0
 
-        extract_folder = f"ga1_q15_extracted"
-        os.makedirs(extract_folder, exist_ok=True)
+        with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zip_ref:
+            for zip_info in zip_ref.infolist():
+                # Convert zip_info.date_time to localized datetime
+                file_mtime = datetime(*zip_info.date_time)
+                file_mtime = pytz.timezone("Asia/Kolkata").localize(file_mtime)
 
-        subprocess.run(f"unzip -q '{zip_path}' -d '{extract_folder}'", shell=True, check=True)
+                # Check both conditions: size and modified timestamp
+                if zip_info.file_size >= min_size and file_mtime >= target_dt:
+                    total_size += zip_info.file_size
 
-        # ✅ Use bash to find and sum sizes of matching files
-        find_command = (
-            f'find . -type f -size +{min_size}c -newermt "{date_for_find}" '
-            f'-exec du -b {{}} + | awk \'{{sum += $1}} END {{print sum}}\''
-        )
-
-        result = subprocess.run(
-            find_command,
-            shell=True,
-            text=True,
-            capture_output=True,
-            cwd=extract_folder
-        )
-
-        output = result.stdout.strip()
-        return output if output else "0"
+        return str(total_size)
 
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"❌ Error: {str(e)}"
+
 
 
 #GA1 Q16 - Calculate the sum of all numbers in a text file   -- ✅ 
