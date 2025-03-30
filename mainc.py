@@ -788,9 +788,17 @@ async def ga2_q5(question:str, file: UploadFile) -> str:
 #GA2 Q7 - GITHUB ACTION
 @register_question(r".*Create a GitHub action on one of your GitHub repositories.*")
 async def ga2_q7(question:str) -> str:
-    print(f"🔥 Called ga2_q3: {question}")
+    print(f"🔥 Called ga2_q7: {question}")
     url = "https://github.com/shalinis97/TDS"
     return url
+
+#GA2 Q8 - docker image url
+@register_question(r".*Create and push an image to Docker Hub.*")
+async def ga2_q7(question:str) -> str:
+    print(f"🔥 Called ga2_q8: {question}")
+    url = "https://hub.docker.com/repository/docker/shalinis97/tds/"
+    return url
+
 
 #GA2 Q10 - running llamafile through ngrok
 @register_question(r".*Create a tunnel to the Llamafile server using ngrok.*")
