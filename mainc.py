@@ -746,6 +746,12 @@ plt.show()
 """
     return markdown_content #return markdown_content.replace("\n", "")
 
+#GA2 Q3 - GITHUB PAGES
+@register_question(r".*What is the GitHub Pages URL.*")
+async def ga2_q3(question:str) -> str:
+    print(f"🔥 Called ga2_q3: {question}")
+    url = "https://shalinis97.github.io/TDS/"
+    return url
 
 #GA2 Q4 - google collab 
 @register_question(r".*Let's make sure you can access Google Colab.*")
