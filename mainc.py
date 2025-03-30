@@ -518,14 +518,8 @@ async def ga1_q13(question: str) -> str:
 
 # GA1 Q14 - find and replace a string in a file ✅
 
-#@register_question(r".*Download.*and unzip it into a new folder, then replace all \"IITM\" (in upper, lower, or mixed case) with \"IIT Madras\" in all files. Leave everything as-is - don't change the line endings.*What does running cat \* \| sha256sum in that folder show in bash.*")
-#@register_question(r".*Download.*replace all\s+\"?IITM\"?.*with\s+\"?IIT Madras\"?.*in all files.*cat\s+\*\s+\|\s+sha256sum.*bash.*")
-#@register_question(r".*Leave everything as-is - don't change the line endings.*does running cat * | sha256sum in that folder show in bash?.*")
-#@register_question(r".*IIT Madras.*")
-#@register_question(r".*replace all.*IITM.*with.*IIT Madras.*sha256sum.*")
-#@register_question(r".*unzip.*replace all.*IITM.*with.*IIT Madras.*line endings.*cat \* \| sha256sum.*")
-#@register_question(r".*Leave everything as-is - don't change the line endings.*")
-#@register_question(r".*replace all [\"']?IITM[\"']? \(in upper, lower, or mixed case\) with [\"']?IIT Madras[\"']? in all files\. Leave everything as-is - don't change the line endings.*")
+import platform
+
 @register_question(r".*Leave\s+everything\s+as[\s\-]*is\s*[-–—]?\s*don'?t\s+change\s+the\s+line\s+endings\..*")
 async def ga1_q14(question: str, file: UploadFile) -> str:
     print("✅ ga1_q14 matched and is executing.")
@@ -536,20 +530,24 @@ async def ga1_q14(question: str, file: UploadFile) -> str:
         with open(zip_path, "wb") as f:
             f.write(await file.read())
 
-        # ✅ Step 2: Extract to normal folder `ga1_q14` (create if doesn't exist)
+        # ✅ Step 2: Extract to folder
         extract_folder = "ga1_q14"
-        print("Extracting to:", os.path.abspath(extract_folder))
-        print("Current working directory:", os.getcwd())
-
         os.makedirs(extract_folder, exist_ok=True)
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(extract_folder)
 
-        # ✅ Step 3: Replace all "IITM" (any case) with "IIT Madras" in all files using bash sed
-        sed_cmd = "find . -type f -exec sed -i '' 's/[Ii][Ii][Tt][Mm]/IIT Madras/g' {} +"
+        # ✅ Step 3: Choose correct sed command based on OS
+        system_os = platform.system()
+        print("Detected OS:", system_os)
+
+        if system_os == "Darwin":  # macOS
+            sed_cmd = "find . -type f -exec sed -i '' 's/[Ii][Ii][Tt][Mm]/IIT Madras/g' {} +"
+        else:  # Linux and others
+            sed_cmd = "find . -type f -exec sed -i 's/[Ii][Ii][Tt][Mm]/IIT Madras/g' {} +"
+
         subprocess.run(sed_cmd, shell=True, check=True, cwd=extract_folder)
 
-        # ✅ Step 4: Get sha256sum from all file contents using `cat * | sha256sum`
+        # ✅ Step 4: Compute sha256sum
         sha_cmd = "cat * | sha256sum"
         result = subprocess.run(sha_cmd, shell=True, capture_output=True, text=True, cwd=extract_folder)
 
