@@ -675,6 +675,8 @@ async def ga1_q18(question:str) -> str:
     print(f"🔥 Called ga1_q18: {question}")
     sql_query = "SELECT SUM(units * price) AS sales FROM tickets WHERE trim(lower(type)) = 'gold';"
     return sql_query
+
+
 #-------- GA2 questions---------
 
 # GA2 Q1 - Write Markdown documentation for weekly step count analysis
@@ -746,7 +748,7 @@ plt.show()
 
 
 #GA2 Q4 - google collab 
-@register_question(r".Let's make sure you can access Google Colab.")
+@register_question(r".*Let's make sure you can access Google Colab.*")
 async def ga2_q4(question: str) -> str:
     print(f"🔥 Called ga2_q4: {question}")
 
