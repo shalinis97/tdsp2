@@ -785,6 +785,13 @@ async def ga2_q5(question:str, file: UploadFile) -> str:
     light_pixels = np.sum(lightness > 0.133)
     return str(int(light_pixels))
 
+#GA2 Q7 - GITHUB ACTION
+@register_question(r".*Create a GitHub action on one of your GitHub repositories.*")
+async def ga2_q7(question:str) -> str:
+    print(f"🔥 Called ga2_q3: {question}")
+    url = "https://github.com/shalinis97/TDS"
+    return url
+
 #GA2 Q10 - running llamafile through ngrok
 @register_question(r".*Create a tunnel to the Llamafile server using ngrok.*")
 async def ga2_q10(question: str) -> str:
