@@ -658,7 +658,7 @@ async def ga1_q16(question: str, file: UploadFile) -> str:
 
 
 # GA1 Q17 - Count the number of different lines between two files ✅
-@register_question(r".*many lines are different between a.txt and b.txt?.*")
+@register_question(r".*a.txt.*")
 async def ga1_q17(question: str, file: UploadFile) -> str:
     print(f"🔥 Called ga1_q17: {question}")
     file_content = await file.read()
