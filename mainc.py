@@ -39,6 +39,8 @@ import tempfile
 import hashlib
 from collections import OrderedDict
 import pytz
+import base64
+
 
 
 
@@ -77,7 +79,7 @@ def register_question(pattern: str):
 # ga1 q1 - Output of 'code -s' without escape characters ✅
 @register_question(r".*output of code -s.*")
 async def ga1_q1(question: str) -> str:
-    print(f"🔥 Called ga1_q1: {question}")
+    print(f"  Called ga1_q1: {question}")
     """
     Returns the output of 'code -s' without any escape characters, 
     exactly as a plain string (no JSON encoding).
@@ -95,7 +97,7 @@ async def ga1_q1(question: str) -> str:
 
 @register_question(r".*Send a HTTPS request to.*with the URL encoded parameter email set to.*")
 async def ga1_q2(question: str) -> str:
-    print(f"🔥 Called ga1_q2: {question}")
+    print(f"  Called ga1_q2: {question}")
     email_pattern = r"email set to ([\w.%+-]+@[\w.-]+\.[a-zA-Z]{2,})"
     match = re.search(email_pattern, question)
     if match:
@@ -129,7 +131,7 @@ async def ga1_q2(question: str) -> str:
 @register_question(r".*npx -y prettier@3.4.2 README.md.*")
 
 async def ga1_q3(question: str, file: UploadFile) -> str:
-    print(f"🔥 Called ga1_q3: {question}")
+    print(f"  Called ga1_q3: {question}")
     try:
         # Step 1: Save the uploaded file as README.md in a temp directory
         file_path = f"/tmp/README.md"
@@ -154,7 +156,7 @@ async def ga1_q3(question: str, file: UploadFile) -> str:
 #GA1 Q4 - Sum(array_constrain(sequence())) using google sheets ✅
 @register_question(r".*=SUM\(ARRAY_CONSTRAIN\(SEQUENCE.*")
 async def ga1_q4(question: str) -> str:
-    print(f"🔥 Called ga1_q4: {question}")
+    print(f"  Called ga1_q4: {question}")
     match = re.search(
         r"=SUM\(ARRAY_CONSTRAIN\(SEQUENCE\((\d+), (\d+), (\d+), (\d+)\), (\d+), (\d+)\)\)",
         question
@@ -182,7 +184,7 @@ async def ga1_q4(question: str) -> str:
 
 @register_question(r".*=SUM\(TAKE\(SORTBY\({.*")
 async def ga1_q5(question: str) -> str:
-    print(f"🔥 Called ga1_q5: {question}")
+    print(f"  Called ga1_q5: {question}")
     """
     Handles Excel 365-specific formula-based questions:
     =SUM(TAKE(SORTBY({values}, {keys}), rows, cols))
@@ -285,7 +287,7 @@ async def ga1_q6(question: str, file: UploadFile = None) -> str:
 # GA1 Q7 - Count the number of Wednesdays in a given date range ✅
 @register_question(r".*How many Wednesdays are there in the date range.*")
 async def ga1_q7(question: str) -> str:
-    print(f"🔥 Called ga1_q7: {question}")
+    print(f"  Called ga1_q7: {question}")
     match = re.search(r".*How many Wednesdays are there in the date range (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2}).*", question)
     if not match:
         return "Invalid question format"
@@ -303,7 +305,7 @@ async def ga1_q7(question: str) -> str:
 # GA1 Q8 - Import file to get answer from CSV ✅
 @register_question(r".*Download and unzip file .* which has a single extract.csv file inside.*")
 async def ga1_q8(question: str, file: UploadFile) -> str:
-    print(f"🔥 Called ga1_q8: {question}")
+    print(f"  Called ga1_q8: {question}")
     file_content = await file.read()
     with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
         zip_ref.extractall('extracted_files')
@@ -317,7 +319,7 @@ async def ga1_q8(question: str, file: UploadFile) -> str:
 
 @register_question(r".*Sort this JSON array of objects by the value of the age field. In case of a tie, sort by the name field.*")
 async def ga1_q9(question: str) -> str:
-    print(f"🔥 Called ga1_q9: {question}")
+    print(f"  Called ga1_q9: {question}")
     """
     Example question snippet:
       "Sort this JSON array of objects by the value of the age field. In case of a tie, sort by the name field.
@@ -366,7 +368,7 @@ async def ga1_q9(question: str) -> str:
 #GA1 Q10 - CONVERT INTO A SINGLE JSON OBJECT AND FETCH JSONHASH FROM URL
 @register_question(r".*convert it into a single JSON object.*jsonhash.*")
 async def ga1_q10(question: str, file: UploadFile) -> str:
-    print(f"🔥 Called ga1_q10: {question}")
+    print(f"  Called ga1_q10: {question}")
 
     try:
         # Step 1: Read uploaded text file
@@ -451,7 +453,7 @@ async def ga1_q11(question: str, file: UploadFile = None) -> str:
 
 @register_question(r".*Sum up all the values where the symbol matches.*")
 async def ga1_q12(question: str, file: UploadFile) -> str:
-    print(f"🔥 Called ga1_q12: {question}")
+    print(f"  Called ga1_q12: {question}")
     """
     Example question:
       "Sum up all the values where the symbol matches Č OR ř OR ž across all three files."
@@ -512,7 +514,7 @@ async def ga1_q12(question: str, file: UploadFile) -> str:
 
 @register_question(r".*Enter the raw Github URL of email.json so we can verify it.*")
 async def ga1_q13(question: str) -> str:
-    print(f"🔥 Called ga1_q13: {question}")
+    print(f"  Called ga1_q13: {question}")
     url ="https://raw.githubusercontent.com/shalinis97/TDS/refs/heads/main/email.json"
     return url
 
@@ -566,7 +568,7 @@ async def ga1_q14(question: str, file: UploadFile) -> str:
 @register_question(r".*Use ls with options to list all files in the folder along with their date and file size.*")
 async def ga1_q15(question: str, zip_file: UploadFile) -> str:
 
-    print(f"🔥 Called ga1_q15: {question}")
+    print(f"  Called ga1_q15: {question}")
 
     try:
         # ✅ Extract minimum size from question
@@ -611,7 +613,7 @@ async def ga1_q15(question: str, zip_file: UploadFile) -> str:
 #GA1 Q16 - Calculate the sum of all numbers in a text file   -- ✅ 
 @register_question(r".*grep . * | LC_ALL=C sort | sha256sum.*")
 async def ga1_q16(question: str, file: UploadFile) -> str:
-    print(f"🔥 Called ga1_q16: {question}")
+    print(f"  Called ga1_q16: {question}")
     try:
         # Step 1: Save the uploaded ZIP file
         zip_path = f"/tmp/{file.filename}"  # Temporary path for extraction
@@ -658,7 +660,7 @@ async def ga1_q16(question: str, file: UploadFile) -> str:
 # GA1 Q17 - Count the number of different lines between two files ✅
 @register_question(r".*a.txt.*")
 async def ga1_q17(question: str, file: UploadFile) -> str:
-    print(f"🔥 Called ga1_q17: {question}")
+    print(f"  Called ga1_q17: {question}")
     file_content = await file.read()
     with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
         zip_ref.extractall('extracted_files')
@@ -672,7 +674,7 @@ async def ga1_q17(question: str, file: UploadFile) -> str:
 #GA1 Q18 - sql query
 @register_question(r".*What is the total sales of all the items in the \"Gold\" ticket type\? Write SQL to calculate it.*")
 async def ga1_q18(question:str) -> str:
-    print(f"🔥 Called ga1_q18: {question}")
+    print(f"  Called ga1_q18: {question}")
     sql_query = "SELECT SUM(units * price) AS sales FROM tickets WHERE trim(lower(type)) = 'gold';"
     return sql_query
 
@@ -750,21 +752,21 @@ plt.show()
 #GA2 Q2 - base64 code for compressed image
 @register_question(r".*Download the image below and compress it losslessly to an image that is less than 1,500 bytes.*")
 async def ga2_q3(question:str) -> str:
-    print(f"🔥 Called ga2_q2: {question}")
+    print(f"  Called ga2_q2: {question}")
     code = "iVBORw0KGgoAAAANSUhEUgAAAyAAAAJYBAMAAABoWJ9DAAAAD1BMVEUAAAD/AAAA/wAAAP///wCs5V9gAAAAAXRSTlMAQObYZgAABEhJREFUeAHswYEAAAAAgKD9qRepAgAAAAAAAAAAAAAAAAAAAAAAAGD27sakohiKAfDhTKAbSPYfUv4LiFJEruHxZYWPpBf0tS+X9wfyNn+Qzcn8a4AcjAIUIEejwARIfszHPBQgh6OGBMjmJvNMgJx6NJQEyKlHQ0mA5KSgJECSHhEgZ64qZgvIJkUiQDYpEgGySZEIkE2aRIDkPg98awFJmkSAJE0iQM4B0nCMANmkSQRITgpGC0jSJAJkc1IwWkCSpooA2aSoIkA2aRIBkpOC0QKySVNFgCRNFQGySVNFgCRNFQGySVNFgCRNFQGySVNFgCRNFQGyiYoAAXKxWA2bBWSTpooASVQECJCLxarYLCCJigABcrFYFZsFJFERIEAuFstmAfkaIInNAgLkYrFsFhAgF4tVu1lAgAABsjlxiJSDAAECJHGIAPlVgAABAmSTVzjVgQABAgQIECCJzywgQIAAAQIECBAgQIAAAQIECBAgQIAAAQLE30OAAAECBAgQIP5zEQgQIECA+AVVPQgQIED8Th0IECBA3AYEBIgb5YAAcSspECButgYCxOsIQEZBgDTHG1RAvNIGpD1e+gTiLVyvRb8ICBAgU7ZYQLarIECmrCBAtqsgQKasIEC2qyBApqwgQLarIECmrCBAtqsgQGa7PIBM2WAB2a6CAJmyggCZMg8g2zVYQGa7PIBM2WABmTIPIFPmAWS7DhAgs10eQGa7PIDMdnkAme3yADJT9n0FZMo8gMx2zRWQmbJ6AJntqgeQmbJ6AJkp4wAysy1jBeSYNGgA+R5lPtmjAwsAQAAIgI8GihYI7T9TO0Q87la4bgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADA+ogpRAhC3gkR0g8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2GnCOGnCbZ8OBgAAABgIyc2faRr3KIc2RVpB1ioiSKyIILUigihSC6JILIgitSCKxIIokgnSLCKIIrUgisSCKFILokgsiCK1IIrEgihSC6JILIgitSCKxIIoUguiSCyIIrUgisSCKFILokgsiCK1IIrEgihSC6JILIgitSCKxIIoUguiSCyIIrUgisSCKFILokgriCKBIIoEggSKCNIqIkisiCCtIoLEigjSKiJIrIggrSKCxIoI0ioiSKyIIK0igsSKCNIqIkisiCCtIoLEigjSKiJIrIggrSKCxIoI0ioiSKyIIK0igsSKCNIqIkisiCCtIoLEigjSKiJIrIggrSKCxIoI0ioiSKyIIK0igsSKCNIqIkisiCCtIoJ0iwgSKCJIrIggrSKCxIoI0ioiSKyIIK0igsSKCNIqIkisiCCtIoLEigjSKiJIrIgg5SKC9IsI0i8iSL8IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcF4nMB4DQuEUAAAAASUVORK5CYII="
     return code
 
 #GA2 Q3 - GITHUB PAGES
 @register_question(r".*What is the GitHub Pages URL.*")
 async def ga2_q3(question:str) -> str:
-    print(f"🔥 Called ga2_q3: {question}")
+    print(f"  Called ga2_q3: {question}")
     url = "https://shalinis97.github.io/TDS/"
     return url
 
 #GA2 Q4 - google collab 
 @register_question(r".*Let's make sure you can access Google Colab.*")
 async def ga2_q4(question: str) -> str:
-    print(f"🔥 Called ga2_q4: {question}")
+    print(f"  Called ga2_q4: {question}")
 
     match = re.search(r"ID:\s*([\w\.-]+@[\w\.-]+)", question)
     if not match:
@@ -796,14 +798,14 @@ async def ga2_q5(question:str, file: UploadFile) -> str:
 #GA2 Q7 - GITHUB ACTION
 @register_question(r".*Create a GitHub action on one of your GitHub repositories.*")
 async def ga2_q7(question:str) -> str:
-    print(f"🔥 Called ga2_q7: {question}")
+    print(f"  Called ga2_q7: {question}")
     url = "https://github.com/shalinis97/TDS"
     return url
 
 #GA2 Q8 - docker image url
 @register_question(r".*Create and push an image to Docker Hub.*")
 async def ga2_q7(question:str) -> str:
-    print(f"🔥 Called ga2_q8: {question}")
+    print(f"  Called ga2_q8: {question}")
     url = "https://hub.docker.com/repository/docker/shalinis97/tds/"
     return url
 
@@ -811,25 +813,280 @@ async def ga2_q7(question:str) -> str:
 #GA2 Q10 - running llamafile through ngrok
 @register_question(r".*Create a tunnel to the Llamafile server using ngrok.*")
 async def ga2_q10(question: str) -> str:
-    print(f"🔥 Called ga2_q10: {question}")
-    url = "https://2350-2409-4072-6e45-1953-c9d6-9624-b787-cecb.ngrok-free.app/"
+    print(f"  Called ga2_q10: {question}")
+    url = "https://b45f-223-178-84-140.ngrok-free.app/"
     return url
 
 
 
-
+#------------------------------------
 #-------- end of GA2 questions-------
 #------------------------------------
 
 
 
+
 #-------- GA3 questions---------
+
+#GA3 Q1 - python code for user message parameterised
+@register_question(r".*Write a Python program that uses httpx to send a POST request to OpenAI's API to analyze the sentiment of this \(meaningless\) text into GOOD, BAD or NEUTRAL.*")
+async def ga3_q1(question: str) -> str:
+    print(f"  Called ga3_q1: {question}")
+
+    # Extract the text after 'meaningless text:' and before 'Write a Python program'
+    match = re.search(
+        r"meaningless text:\s*(.*?)\s*Write a Python program that uses httpx",
+        question,
+        re.DOTALL,
+    )
+
+    if not match:
+        return "Error: Could not extract the meaningless text from the question."
+
+    meaningless_text = match.group(1).strip()
+
+    python_code = f'''
+import httpx
+
+url = "https://api.openai.com/v1/chat/completions"
+
+headers = {{
+    "Authorization": "Bearer dummy_api_key",
+    "Content-Type": "application/json"
+}}
+
+system_message = "Analyze if the input message is GOOD , BAD or NEUTRAL."
+user_message = """{meaningless_text}"""
+
+payload = {{
+    "model": "gpt-4o-mini",
+    "messages": [
+        {{"role": "system", "content": system_message}},
+        {{"role": "user", "content": user_message}}
+    ],
+    "temperature": 0.7
+}}
+
+response = httpx.post(url, headers=headers, json=payload)
+response.raise_for_status()
+result = response.json()
+
+for choice in result["choices"]:
+    print("AI Response:", choice["message"]["content"])
+'''
+    return python_code
+
+
+#GA3 Q2 - no of tokens
+@register_question(r".*how many input tokens does it use up.*")
+async def ga3_q2(question: str) -> str:
+    print(f" Called ga3_q2: {question}")
+
+    # Load .env and get API key
+    load_dotenv()
+    BASE_URL = "https://aiproxy.sanand.workers.dev/openai/v1"
+    API_KEY = os.getenv("AIPROXY_TOKEN")
+
+    if not API_KEY:
+        return "Error: AIPROXY_TOKEN not found in environment variables."
+
+    # Extract user message content
+    match = re.search(
+        r"List only the valid English words from these:(.*?)\s*\.\.\. how many input tokens does it use up\?",
+        question,
+        re.DOTALL,
+    )
+
+    if not match:
+        return "Error: No valid input found."
+
+    user_message = "List only the valid English words from these: " + match.group(1).strip()
+
+    # Prepare request
+    data = {
+        "model": "gpt-4o-mini",
+        "messages": [{"role": "user", "content": user_message}]
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {API_KEY}"
+    }
+
+    try:
+        response = httpx.post(BASE_URL + "/chat/completions", json=data, headers=headers, timeout=60)
+        response.raise_for_status()
+        return str(response.json().get("usage", {}).get("prompt_tokens", "Token count not found"))
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
+# GA3 Q3 -  llm text extraction
+@register_question(r".*write the body of the request.*addresses.*array of objects with required fields.*")
+async def ga3_q3(question: str) -> dict:
+    print(f"  Called ga3_q3: {question}")
+
+    # Extract the fields and their types from the question
+    match = re.search(
+        r"Uses structured outputs to respond with an object addresses which is an array of objects with required fields: "
+        r"(\w+)\s*\(\s*(\w+)\s*\)\s*"
+        r"(\w+)\s*\(\s*(\w+)\s*\)\s*"
+        r"(\w+)\s*\(\s*(\w+)\s*\)",
+        question
+    )
+
+    if not match:
+        print("No match found")
+        return "Error: Could not extract required fields and types from the question."
+
+    field1, type1 = match.group(1), match.group(2).lower()
+    field2, type2 = match.group(3), match.group(4).lower()
+    field3, type3 = match.group(5), match.group(6).lower()
+
+    # Build the JSON request body
+    json_data = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {"role": "system", "content": "Respond in JSON"},
+            {"role": "user", "content": "Generate 10 random addresses in the US"}
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "addresses",
+                "schema": {
+                    "type": "object",
+                    "description": "An address object to insert into the database",
+                    "properties": {
+                        "addresses": {
+                            "type": "array",
+                            "description": "A list of random addresses",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    field1: {"type": type1, "description": f"The {field1} of the address."},
+                                    field2: {"type": type2, "description": f"The {field2} of the address."},
+                                    field3: {"type": type3, "description": f"The {field3} of the address."}
+                                },
+                                "required": [field1, field2, field3],
+                                "additionalProperties": False
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return json.dumps(json_data, indent=2)
+
+
+#GA3 Q4 - upload image and add the the base64 code in the python code output
+@register_question(r".*Write just the JSON body.*text and image URL.*")
+async def ga3_q4(question: str, file: UploadFile) -> str:
+    print(f"  Called ga3_q4: {question}")
+
+    if not file or not file.filename:
+        return "Error: No file uploaded."
+
+    binary_data = await file.read()
+    if not binary_data:
+        return "Error: Uploaded file is empty."
+
+    # Encode the image as base64
+    image_b64 = base64.b64encode(binary_data).decode()
+
+    # Create the required JSON body
+    json_data = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Extract text from this image."},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{image_b64}"}
+                    }
+                ]
+            }
+        ]
+    }
+
+    return json.dumps(json_data, indent=2)
+
+
+#GA3 Q5 - two verification messages in json body
+@register_question(r".*obtain the text embedding for the 2 given personalized transaction verification messages.*")
+async def ga3_q5(question: str) -> str:
+    print(f"  Called ga3_q5: {question}")
+
+    # Find all verification messages in the text
+    matches = re.findall(
+        r"Dear user, please verify your transaction code (\d+) sent to ([\w.%+-]+@[\w.-]+\.\w+)",
+        question
+    )
+
+    if not matches:
+        return "Error: Invalid message format. Could not extract email and transaction codes."
+
+    # Reconstruct full messages
+    extracted_messages = [
+        f"Dear user, please verify your transaction code {code} sent to {email}"
+        for code, email in matches
+    ]
+
+    # Construct JSON body
+    result = {
+        "model": "text-embedding-3-small",
+        "input": extracted_messages
+    }
+
+    return json.dumps(result, indent=2)
+
+#GA3 Q6 - SIMILARITY EMDEDDINGS
+@register_question(r".*will calculate the cosine similarity between each pair of these embeddings and return the pair that has the highest similarity.*")
+async def ga3_q6(question: str) -> str:
+    print(f"  Called ga3_q6: {question}")
+
+    python_code = """
+import numpy as np
+
+def most_similar(embeddings):
+    phrases = list(embeddings.keys())
+    embedding_values = np.array(list(embeddings.values()))
+    similarity_matrix = np.dot(embedding_values, embedding_values.T)
+    norms = np.linalg.norm(embedding_values, axis=1)
+    similarity_matrix = similarity_matrix / np.outer(norms, norms)
+    np.fill_diagonal(similarity_matrix, -1)
+    max_indices = np.unravel_index(np.argmax(similarity_matrix, axis=None), similarity_matrix.shape)
+    phrase1, phrase2 = phrases[max_indices[0]], phrases[max_indices[1]]
+    return (phrase1, phrase2)
+    """.strip()
+
+    return python_code
+
+#GA3 Q7 - similarity VERCEL API
+@register_question(r".*The API then calculates the cosine similarity between the query embedding and each document embedding. This allows the service to determine which documents best match the intent of the query.*")
+async def ga3_q8(question:str)->str:
+    print(f" Called ga3_q7: {question}")
+    url ="https://tds-ga3-7.vercel.app/similarity"
+    return url
+
+
+#GA3 Q8 - EXECUTE VERCEL API
+@register_question(r".*where the query parameter q contains one of the pre-templatized questions.*")
+async def ga3_q8(question:str)->str:
+    print(f" Called ga3_q8: {question}")
+    url ="https://tds-ga3-8.vercel.app/execute"
+    return url
+
 
 # GA3 Q9 - Generate a prompt for LLM to respond "Yes" ✅
 
 @register_question(r".*(prompt|make).*LLM.*Yes..*")
 async def ga3_q9(question: str) -> str:
-    return "Fire is wet"
+    print(f" Called ga3_q9: {question}")
+    return "Respond with only 'Yes' or 'No': Is water wet?"
 
 
 
@@ -925,12 +1182,70 @@ async def ga4_q1(question: str) -> str:
     return str(total_ducks)
 
 
+#GA4 q2 - imdb
+
+# Optional title fixer function
+def change_movie_title(title: str) -> str:
+    if "Kraven: The Hunter" in title:
+        return title.replace("Kraven: The Hunter", "Kraven the Hunter")
+    elif "Captain America: New World Order" in title:
+        return title.replace("Captain America: New World Order", "Captain America: Brave New World")
+    return title
+
+@register_question(r".*Filter all titles with a rating between \d+ and \d+.*")
+async def ga3_q6(question: str) -> str:
+    print(f"📦 Called ga3_q6: {question}")
+
+    # Extract min and max rating from the question
+    match = re.search(r'Filter all titles with a rating between (\d+) and (\d+)\.', question)
+    if not match:
+        return "Error: Could not extract rating range."
+
+    min_rating, max_rating = match.group(1), match.group(2)
+
+    # IMDb URL with rating filter
+    url = f"https://www.imdb.com/search/title/?user_rating={min_rating},{max_rating}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        return json.dumps({"error": "Failed to fetch data from IMDb"}, indent=2)
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    movie_items = soup.select(".ipc-metadata-list-summary-item")
+    items = movie_items[:25]
+
+    movies = []
+    for item in items:
+        link = item.select_one(".ipc-title-link-wrapper")
+        movie_id = re.search(r"(tt\d+)", link["href"]).group(1) if link and link.get("href") else None
+
+        title_elem = item.select_one(".ipc-title__text")
+        title = title_elem.text.strip() if title_elem else None
+        title = change_movie_title(title)
+
+        year_elem = item.select_one(".dli-title-metadata-item")
+        year = year_elem.text.strip() if year_elem else None
+
+        rating_elem = item.select_one(".ipc-rating-star--rating")
+        rating = rating_elem.text.strip() if rating_elem else None
+
+        if movie_id and title and year and rating:
+            movies.append({
+                "id": movie_id,
+                "title": title,
+                "year": year,
+                "rating": rating
+            })
+
+    return json.dumps(movies, indent=2)
+
 #GA4 Q3 -  public api endpoint url that gives a json response of headers alone taking 
 #countryname as input in the url (request is passed accordingly). Takes data from wikipedia.
 
 @register_question(r".*Wikipedia.*")
 async def ga4_q3(question: str) -> str:
-    print(f"🔥 Called ga4_q3: {question}")
+    print(f"  Called ga4_q3: {question}")
     url ="https://e00b-2409-4072-6e45-1953-c9d6-9624-b787-cecb.ngrok-free.app/api/outline"
     return url
 
