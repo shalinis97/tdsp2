@@ -67,7 +67,7 @@ class AnswerResponse(BaseModel):
 
 # Keep AIPROXY_TOKEN and NLP_API_URL without usage
 AIPROXY_TOKEN = os.getenv("AIPROXY_TOKEN")
-BASE_URL = "http://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
+NLP_API_URL = "http://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
 
 # Function map to dynamically call the correct function based on regex patterns
 function_map: Dict[str, Callable] = {}
@@ -882,9 +882,15 @@ for choice in result["choices"]:
 
 
 #GA3 Q2 - no of tokens
+import re
+import httpx
+import os
+from dotenv import load_dotenv
+from typing import Callable
+
 @register_question(r".*how many input tokens does it use up.*")
 async def ga3_q2(question: str) -> str:
-    print(f" Called ga3_q2: {question}")
+    print(f"📦 Called ga3_q2: {question}")
 
     # Load .env and get API key
     load_dotenv()
