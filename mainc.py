@@ -40,7 +40,11 @@ import hashlib
 from collections import OrderedDict
 import pytz
 import base64
-
+from dateutil import parser
+import pycountry
+from io import BytesIO
+import gzip
+from collections import defaultdict
 
 
 
@@ -63,7 +67,7 @@ class AnswerResponse(BaseModel):
 
 # Keep AIPROXY_TOKEN and NLP_API_URL without usage
 AIPROXY_TOKEN = os.getenv("AIPROXY_TOKEN")
-NLP_API_URL = "http://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
+BASE_URL = "http://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
 
 # Function map to dynamically call the correct function based on regex patterns
 function_map: Dict[str, Callable] = {}
@@ -1706,109 +1710,69 @@ async def ga4_q10(question: str, file: UploadFile) -> str:
 
 # GA5 Q1 - Calculate total margin from Excel file
 
-import re
-import io
-from datetime import datetime
-from dateutil import parser
+# Utility: Normalize and match country name to 2-letter code
+def get_country_code(country_name: str) -> str:
+    normalized_name = re.sub(r'[^A-Za-z]', '', country_name).upper()
+    for country in pycountry.countries:
+        names = {country.name, country.alpha_2, country.alpha_3}
+        if hasattr(country, 'official_name'):
+            names.add(country.official_name)
+        if hasattr(country, 'common_name'):
+            names.add(country.common_name)
+        if normalized_name in {re.sub(r'[^A-Za-z]', '', name).upper() for name in names}:
+            return country.alpha_2
+    return "Unknown"
 
-import pandas as pd
-from fastapi import UploadFile
+# Utility: Handle multiple date formats
+def parse_date(date):
+    for fmt in ("%m-%d-%Y", "%Y/%m/%d", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(str(date), fmt).date()
+        except ValueError:
+            continue
+    return None
 
-@register_question(r".*Download the Sales Excel file: .* What is the total margin for transactions before (.*) for (.*) sold in (.*)\?.*")
+@register_question(r".*total margin for transactions before.*India Standard Time.*")
 async def ga5_q1(question: str, file: UploadFile) -> str:
-    """
-    This function cleans an Excel file and calculates the margin for transactions
-    strictly *before* a specified local date/time, for a specified product and country.
+    print(f"📦 Called ga5_q1: {question}")
 
-    Main changes from previous version:
-      1) We interpret "before" as a strict comparison: (df['Date'] < filter_date)
-      2) We ignore the time zone from the question by using parse(..., ignoretz=True).
+    file_content = await file.read()
+    file_path = BytesIO(file_content)
 
-    This often fixes mismatches where the code previously got 0.2107 but should be 0.2362.
-    """
-    # --- 1) Extract components from question ---
     match = re.search(
-        r".*Download the Sales Excel file: .*"
-        r"What is the total margin for transactions before (.*) for (.*) sold in (.*)\?.*",
+        r'What is the total margin for transactions before ([A-Za-z]{3} [A-Za-z]{3} \d{2} \d{4} \d{2}:\d{2}:\d{2} GMT[+\-]\d{4}) \(India Standard Time\) for ([A-Za-z]+) sold in ([A-Za-z]+)',
         question,
         re.IGNORECASE
     )
+
     if not match:
-        return "Invalid question format"
+        return "Error: Could not extract date, product, and country from the question."
 
-    date_str, product, country = match.groups()
+    filter_date = datetime.strptime(match.group(1), "%a %b %d %Y %H:%M:%S GMT%z").replace(tzinfo=None).date()
+    target_product = match.group(2)
+    target_country = get_country_code(match.group(3))
 
-    # --- 2) Clean the date string by removing parentheses and parse ignoring time zone ---
-    #    e.g. "Fri Nov 25 2022 06:28:05 GMT+0530 (India Standard Time)" → "Fri Nov 25 2022 06:28:05 GMT+0530"
-    #    Then parse it as naive local time:
-    cleaned_date_str = re.sub(r"\(.*\)", "", date_str).strip()
-    parsed_dt = parser.parse(cleaned_date_str, ignoretz=True)
-
-    # Since we are ignoring time zones, we can just use 'parsed_dt' as our cutoff
-    filter_date = parsed_dt
-
-    # --- 3) Read Excel contents into a DataFrame ---
-    file_content = await file.read()
-    df = pd.read_excel(io.BytesIO(file_content))
-
-    # --- 4) Clean and normalize columns ---
-
-    # a) Trim spaces in Customer Name and Country
+    df = pd.read_excel(file_path)
     df['Customer Name'] = df['Customer Name'].astype(str).str.strip()
-    df['Country']       = df['Country'].astype(str).str.strip()
+    df['Country'] = df['Country'].astype(str).str.strip().apply(get_country_code)
+    df['Date'] = df['Date'].apply(parse_date)
+    df['Product'] = df['Product/Code'].astype(str).str.split('/').str[0]
 
-    # b) Map inconsistent country names to standard codes
-    country_mapping = {
-        "Ind": "IN", "India": "IN", "IND": "IN",
-        "USA": "US", "U.S.A": "US", "US": "US", "United States": "US",
-        "UK": "GB", "U.K": "GB", "United Kingdom": "GB",
-        "Fra": "FR", "France": "FR", "FRA": "FR",
-        "Bra": "BR", "Brazil": "BR", "BRA": "BR",
-        "AE": "AE", "U.A.E": "AE", "UAE": "AE", "United Arab Emirates": "AE"
-    }
-    df['Country'] = df['Country'].map(country_mapping).fillna(df['Country'])
-
-    # c) Parse mixed-format dates (e.g. MM-DD-YYYY, YYYY/MM/DD)
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce', infer_datetime_format=True)
-
-    # d) Extract just the product name from "Product/Code" (split by slash)
-    df['Product'] = df['Product/Code'].astype(str).str.strip().str.split('/').str[0]
-
-    # e) Clean numeric columns (remove 'USD' and spaces) for Sales and Cost
-    df['Sales'] = (df['Sales'].astype(str)
-                             .str.replace('USD', '', case=False, regex=True)
-                             .str.replace(r'\s+', '', regex=True)
-                             .astype(float))
-
-    df['Cost'] = (df['Cost'].astype(str)
-                            .str.replace('USD', '', case=False, regex=True)
-                            .str.replace(r'\s+', '', regex=True))
-    df['Cost'] = pd.to_numeric(df['Cost'], errors='coerce')
-
-    # Fill missing cost with 50% of Sales
+    df['Sales'] = df['Sales'].astype(str).str.replace("USD", "").str.strip().astype(float)
+    df['Cost'] = df['Cost'].astype(str).str.replace("USD", "").str.strip().replace("", np.nan).astype(float)
     df['Cost'].fillna(df['Sales'] * 0.5, inplace=True)
 
-    # --- 5) Filter rows: strictly *before* filter_date, matching product and country ---
-    country_standard = country_mapping.get(country, country)
-
     filtered_df = df[
-        (df['Date'] < filter_date) &  # Strictly before
-        (df['Product'] == product) &
-        (df['Country'] == country_standard)
+        (df["Date"] <= filter_date) &
+        (df["Product"] == target_product) &
+        (df["Country"] == target_country)
     ]
 
-    # --- 6) Calculate the margin ---
-    total_sales = filtered_df['Sales'].sum()
-    total_cost  = filtered_df['Cost'].sum()
+    total_sales = filtered_df["Sales"].sum()
+    total_cost = filtered_df["Cost"].sum()
+    total_margin = (total_sales - total_cost) / total_sales if total_sales > 0 else 0
 
-    filtered_df.to_csv('filtered_df.csv', index=False)
-    if total_sales == 0:
-        total_margin = 0
-    else:
-        total_margin = (total_sales - total_cost) / total_sales
-
-    # Return as a decimal, e.g. "0.2362" for 23.62%
-    return f"{total_margin:.4f}"
+    return str(round(total_margin, 4))
 
 # GA5 Q2 - Count unique student IDs in a text file
 
@@ -1827,8 +1791,128 @@ async def ga5_q2(question: str, file: UploadFile) -> str:
             student_ids.add(match.group(1))
     return str(len(student_ids))
 
-# GA5 Q5 - Calculate from JSON file - itme name, city name and units qty
 
+#GA5 Q3 - get quests from the input .gz file
+@register_question(r".*successful \w+ requests for pages under.*")
+async def ga5_q3(question: str, file: UploadFile) -> str:
+    print(f"📦 Called ga5_q3: {question}")
+
+    file_content = await file.read()
+    file_path = BytesIO(file_content)
+
+    # Extract values from question
+    match = re.search(
+        r'What is the number of successful (\w+) requests for pages under (/[a-zA-Z0-9_/]+) from (\d+):00 until before (\d+):00 on (\w+)days?',
+        question, re.IGNORECASE
+    )
+
+    if not match:
+        return "Error: Invalid question format"
+
+    request_type, target_section, start_hour, end_hour, target_weekday = match.groups()
+    target_weekday = target_weekday.capitalize() + "day"
+
+    print(f"✅ Parsed: {request_type}, {target_section}, {start_hour}-{end_hour}, {target_weekday}")
+
+    status_min = 200
+    status_max = 299
+    successful_requests = 0
+
+    try:
+        with gzip.GzipFile(fileobj=file_path, mode="r") as gz_file:
+            lines = gz_file.read().decode("utf-8").splitlines()
+
+            for line in lines:
+                parts = line.split()
+
+                if len(parts) < 9:
+                    continue
+
+                try:
+                    time_part = parts[3].strip('[]')
+                    log_time = datetime.strptime(time_part, "%d/%b/%Y:%H:%M:%S")
+                except ValueError:
+                    continue
+
+                method = parts[5].replace('"', '').upper()
+                url = parts[6]
+                try:
+                    status = int(parts[8])
+                except:
+                    continue
+
+                weekday = log_time.strftime('%A')
+
+                if (
+                    method == request_type.upper() and
+                    url.startswith(target_section) and
+                    int(start_hour) <= log_time.hour < int(end_hour) and
+                    weekday == target_weekday and
+                    status_min <= status <= status_max
+                ):
+                    successful_requests += 1
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+    return str(successful_requests)
+
+
+
+#GA5 Q4 - NO OF BYTES TOP IP ADDRESS DOWNLOADED
+@register_question(r".*how many bytes did the top IP address.*download.*")
+async def ga5_q4(question: str, file: UploadFile) -> str:
+    print(f"📦 Called ga5_q4: {question}")
+    
+    file_content = await file.read()
+    file_path = BytesIO(file_content)
+
+    # Extract date and language directory from the question
+    date_match = re.search(r'on (\d{4}-\d{2}-\d{2})', question)
+    log_pattern = re.search(r'under ([a-zA-Z0-9_]+)/ on', question)
+
+    if not (date_match and log_pattern):
+        return "Error: Could not extract date or subdirectory from the question"
+
+    target_date = datetime.strptime(date_match.group(1), "%Y-%m-%d").date()
+    language_pattern = f"/{log_pattern.group(1)}/"
+
+    print(f"📅 Date: {target_date}, 🔍 Path starts with: {language_pattern}")
+
+    ip_bandwidth = defaultdict(int)
+
+    try:
+        with gzip.GzipFile(fileobj=file_path, mode="r") as gz_file:
+            lines = gz_file.read().decode("utf-8").splitlines()
+
+            for line in lines:
+                parts = line.split()
+                if len(parts) < 10:
+                    continue
+
+                ip_address = parts[0]
+                time_part = parts[3].strip('[]')
+                url = parts[6]
+                size = int(parts[9]) if parts[9].isdigit() else 0
+
+                try:
+                    log_time = datetime.strptime(time_part, "%d/%b/%Y:%H:%M:%S")
+                except ValueError:
+                    continue
+
+                if url.startswith(language_pattern) and log_time.date() == target_date:
+                    ip_bandwidth[ip_address] += size
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+    top_ip = max(ip_bandwidth, key=ip_bandwidth.get, default=None)
+    top_bandwidth = ip_bandwidth[top_ip] if top_ip else 0
+
+    return str(top_bandwidth)
+
+
+# GA5 Q5 - Calculate from JSON file - itme name, city name and units qty
 @register_question(r".*[Hh]ow\s+many\s+units\s+of\s+(?P<product>.*?)\s+were\s+sold\s+in\s+(?P<city>.*?)\s+on\s+transactions\s+with\s+at\s+least\s+(?P<min_units>\d+)\s+units.*")
 async def ga5_q5(question: str, file: UploadFile) -> str:
     # -------------------------------------------------------------------
@@ -2036,6 +2120,94 @@ async def ga5_q7(question: str, file: UploadFile) -> str:
 
     # 5) Return the result (as a string)
     return str(result_count)
+
+#GA5 Q8 - duck db sql query
+@register_question(r".*DuckDB SQL query to find all posts IDs after.*with at least.*")
+async def ga3_q4(question: str) -> str:
+    print(f"🦆 Called ga3_q4: {question}")
+
+    match = re.search(
+        r"after (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z) with at least (\d+) comment[s]* with (\d+) useful stars",
+        question
+    )
+
+    if not match:
+        return "Error: Could not parse timestamp, comment count, or stars from the question."
+
+    timestamp, comment_count, useful_stars = match.groups()
+    print(f"🕒 Timestamp: {timestamp}, 💬 Comments ≥ {comment_count}, ⭐ Useful stars ≥ {useful_stars}")
+
+    # SQL string
+    sql_query = f"""
+        SELECT DISTINCT post_id
+        FROM (
+            SELECT timestamp, post_id,
+                   UNNEST(comments->'$[*].stars.useful') AS useful
+            FROM social_media
+        ) AS temp
+        WHERE useful >= {useful_stars}.0 AND timestamp > '{timestamp}'
+        ORDER BY post_id ASC
+    """
+
+    # Return as single line string
+    return sql_query.replace("\n", " ").strip()
+
+#GA5 Q9 - TRANSCRIBE AUDIO
+@register_question(r".*transcript.*Mystery Story Audiobook.*between.*seconds.*")
+async def ga5_q9(question: str, file: UploadFile) -> str:
+    print(f" Called ga5_q9: {question}")
+    
+    file_content = await file.read()
+    file_path = BytesIO(file_content)
+
+    # Extract time range from question
+    match = re.search(
+        r'between (\d+(?:\.\d+)?) and (\d+(?:\.\d+)?) seconds?', question, re.IGNORECASE)
+    if not match:
+        return "Error: Could not extract time range from the question."
+
+    try:
+        start_time = int(float(match.group(1)))
+        end_time = int(float(match.group(2)))
+    except (ValueError, TypeError):
+        return "Error: Invalid time format extracted from the question."
+
+    # Read Excel and filter based on timestamp
+    try:
+        df = pd.read_excel(file_path)
+        transcript = ""
+        for _, row in df.iterrows():
+            if start_time <= row["timestamp"] <= end_time:
+                transcript += str(row["text"]) + " "
+    except Exception as e:
+        return f"Error reading file: {str(e)}"
+
+    print(f"📝 Extracted transcript:\n{transcript.strip()}")
+
+    # Correct the transcript via OpenAI API through proxy
+    try:
+        data = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"correct this transcript: {transcript.strip()} return only the answer and nothing else, no extra text"
+                }
+            ]
+        }
+        headers = {
+            "Authorization": f"Bearer {AIPROXY_TOKEN}",
+            "Content-Type": "application/json"
+        }
+
+        response = httpx.post(BASE_URL + "/chat/completions", json=data, headers=headers, timeout=60)
+        response.raise_for_status()
+
+        final_text = response.json()["choices"][0]["message"]["content"]
+        return final_text.strip()
+    except Exception as e:
+        return f"Error correcting transcript: {str(e)}"
+
 
 
 

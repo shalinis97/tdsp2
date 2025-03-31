@@ -19,4 +19,4 @@ PyPDF2
 JPype1
 httpie
 openjdk
-
+pycountry
